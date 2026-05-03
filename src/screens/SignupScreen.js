@@ -6,19 +6,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 
 export default function SignupScreen({ navigation }) {
-  const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [role, setRole] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = () => {
-    if (!name || !email || !password || !confirmPassword) {
+    if (!companyName || !role || !fullName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -26,99 +28,130 @@ export default function SignupScreen({ navigation }) {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
-    Alert.alert('Success', 'Account created!');
-    navigation.replace('Dashboard');
+
+    setLoading(true);
+    
+    setTimeout(() => {
+      setLoading(false);
+      Alert.alert('Success', 'Account created! Please login.');
+      navigation.navigate('Login');
+    }, 1000);
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join EM-Lab</Text>
-        </View>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        <Text style={styles.title}>EM-Lab</Text>
+        <Text style={styles.subtitle}>Enter your details to create an account</Text>
 
-        <View style={styles.formContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            placeholderTextColor="#8e9eae"
-            value={name}
-            onChangeText={setName}
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Company Name"
+          placeholderTextColor="#8e9eae"
+          value={companyName}
+          onChangeText={setCompanyName}
+          editable={!loading}
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#8e9eae"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Role"
+          placeholderTextColor="#8e9eae"
+          value={role}
+          onChangeText={setRole}
+          editable={!loading}
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#8e9eae"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Name and Surname"
+          placeholderTextColor="#8e9eae"
+          value={fullName}
+          onChangeText={setFullName}
+          editable={!loading}
+        />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            placeholderTextColor="#8e9eae"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Your Email"
+          placeholderTextColor="#8e9eae"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          editable={!loading}
+        />
 
-          <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
-            <Text style={styles.signupButtonText}>Sign Up</Text>
-          </TouchableOpacity>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Password"
+          placeholderTextColor="#8e9eae"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          editable={!loading}
+        />
 
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.loginLink}>
-              Already have an account? <Text style={styles.loginLinkBold}>Login</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
+          placeholderTextColor="#8e9eae"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          editable={!loading}
+        />
+
+        <TouchableOpacity 
+          style={styles.signupButton} 
+          onPress={handleSignup}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.signupButtonText}>Create Account</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.signinLink}
+          onPress={() => navigation.navigate('Login')}
+          disabled={loading}
+        >
+          <Text style={styles.signinLinkText}>
+            Already have an account? <Text style={styles.signinLinkBold}>Sign In</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a2a4f',
-  },
   scrollContainer: {
     flexGrow: 1,
+    backgroundColor: '#1a2a4f',
   },
-  headerContainer: {
-    paddingTop: 60,
-    alignItems: 'center',
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+    paddingVertical: 40,
+    backgroundColor: '#1a2a4f',
   },
   title: {
-    fontSize: 32,
+    fontSize: 42,
     fontWeight: 'bold',
+    textAlign: 'center',
     color: '#ffffff',
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
+    textAlign: 'center',
     color: '#c8d4e6',
-  },
-  formContainer: {
-    paddingHorizontal: 30,
-    paddingTop: 40,
-    paddingBottom: 40,
+    marginBottom: 40,
   },
   input: {
     backgroundColor: '#ffffff',
@@ -139,13 +172,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  loginLink: {
-    textAlign: 'center',
+  signinLink: {
+    alignItems: 'center',
     marginTop: 20,
+  },
+  signinLinkText: {
     color: '#c8d4e6',
     fontSize: 14,
   },
-  loginLinkBold: {
+  signinLinkBold: {
     fontWeight: 'bold',
     color: '#ffffff',
   },

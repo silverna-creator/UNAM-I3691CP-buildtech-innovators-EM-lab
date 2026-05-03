@@ -5,92 +5,97 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password');
       return;
     }
-    Alert.alert('Success', 'Logged in!');
-    navigation.replace('Dashboard');
+
+    setLoading(true);
+    
+    // TODO: Connect to Firebase Auth
+    // For now, demo login:
+    setTimeout(() => {
+      setLoading(false);
+      Alert.alert('Demo', 'Login successful!');
+      navigation.replace('Dashboard');
+    }, 1000);
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.logoContainer}>
-        <Text style={styles.title}>EM-Lab</Text>
-        <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
-      </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>EM-Lab</Text>
+      <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
 
-      <View style={styles.formContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#8e9eae"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        placeholderTextColor="#8e9eae"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        editable={!loading}
+      />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#8e9eae"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="#8e9eae"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        editable={!loading}
+      />
 
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+      <TouchableOpacity 
+        style={styles.loginButton} 
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#ffffff" />
+        ) : (
           <Text style={styles.loginButtonText}>Login</Text>
-        </TouchableOpacity>
+        )}
+      </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-          <Text style={styles.signupLink}>
-            Don't have an account? <Text style={styles.signupLinkBold}>Sign Up</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+      {/* No Sign Up button - only this message */}
+      <Text style={styles.helpText}>
+        New to EM-Lab? Contact your lab manager for an invitation.
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a2a4f',
-  },
-  logoContainer: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#1a2a4f',
   },
   title: {
     fontSize: 42,
     fontWeight: 'bold',
+    textAlign: 'center',
     color: '#ffffff',
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
+    textAlign: 'center',
     color: '#c8d4e6',
-  },
-  formContainer: {
-    flex: 1.5,
-    paddingHorizontal: 30,
-    justifyContent: 'center',
+    marginBottom: 40,
   },
   input: {
     backgroundColor: '#ffffff',
@@ -111,14 +116,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  signupLink: {
+  helpText: {
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: 30,
     color: '#c8d4e6',
     fontSize: 14,
-  },
-  signupLinkBold: {
-    fontWeight: 'bold',
-    color: '#ffffff',
   },
 });
