@@ -13,6 +13,7 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -22,8 +23,6 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     
-    // TODO: Connect to Firebase Auth
-    // For now, demo login:
     setTimeout(() => {
       setLoading(false);
       Alert.alert('Demo', 'Login successful!');
@@ -31,9 +30,23 @@ export default function LoginScreen({ navigation }) {
     }, 1000);
   };
 
+  // Hidden admin feature: tap title 5 times to go to Signup
+  const handleTitleTap = () => {
+    const newCount = tapCount + 1;
+    setTapCount(newCount);
+    if (newCount === 5) {
+      setTapCount(0);
+      navigation.navigate('Signup');
+      Alert.alert('Admin Mode', 'Navigating to Signup screen');
+    }
+    setTimeout(() => setTapCount(0), 2000);
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>EM-Lab</Text>
+      <TouchableOpacity onPress={handleTitleTap} activeOpacity={0.7}>
+        <Text style={styles.title}>EM-Lab</Text>
+      </TouchableOpacity>
       <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
 
       <TextInput
@@ -69,7 +82,6 @@ export default function LoginScreen({ navigation }) {
         )}
       </TouchableOpacity>
 
-      {/* No Sign Up button - only this message */}
       <Text style={styles.helpText}>
         New to EM-Lab? Contact your lab manager for an invitation.
       </Text>
