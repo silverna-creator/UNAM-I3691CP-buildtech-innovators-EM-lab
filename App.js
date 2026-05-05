@@ -15,6 +15,19 @@ export default function App() {
       Alert.alert('Error', 'Please enter email and password');
       return;
     }
+    
+    // TEMPORARY LOGIC: This "fakes" a database check
+    // If you type "admin" in the email box, it sets the role to Admin!
+    if (email.toLowerCase().includes('admin')) {
+      setRole('Admin');
+    } else if (email.toLowerCase().includes('tech')) {
+      setRole('Lab Technician');
+    } else if (email.toLowerCase().includes('op')) {
+      setRole('Furnace Operator');
+    } else if (email.toLowerCase().includes('metal')) {
+      setRole('Metallurgist');
+    }
+    
     setScreen('dashboard');
   };
 
@@ -83,8 +96,24 @@ export default function App() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.button} onPress={() => setScreen('login')}>
-          <Text style={styles.buttonText}>Logout</Text>
+        <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
+          <Text style={styles.buttonText}>View Profile</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (screen === 'profile') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>User Profile</Text>
+        <View style={styles.roleBox}>
+           <Text style={styles.buttonText}>Name: {fullName || 'Demo User'}</Text>
+           <Text style={styles.buttonText}>Role: {role}</Text>
+           <Text style={styles.buttonText}>Company: {companyName || 'EM-Lab'}</Text>
+        </View>
+        <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
+          <Text style={styles.buttonText}>Back to Dashboard</Text>
         </TouchableOpacity>
       </View>
     );
@@ -198,15 +227,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a2a4f',
-    justifyContent: 'center', // This centers the Login and Dashboard
+    justifyContent: 'center',
   },
   scrollContainer: {
-    flexGrow: 1, // This tells the scroll view to fill the space
+    flexGrow: 1,
     padding: 20,
-    justifyContent: 'center', // This centers the items INSIDE the scroll view[cite: 2]
+    justifyContent: 'center',
     paddingVertical: 50,
   },
-  // ... leave the rest of your styles (title, input, etc.) exactly as they are
   title: {
     fontSize: 42,
     fontWeight: 'bold',
@@ -256,5 +284,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     textDecorationLine: 'underline',
+  },
+  // --- NEW ROLE STYLES ---
+  roleBox: {
+    backgroundColor: '#2c3e50',
+    padding: 20,
+    borderRadius: 15,
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: '#3498db',
+  },
+  roleTitle: {
+    color: '#3498db',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  roleButton: {
+    backgroundColor: '#34495e',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
   },
 });
