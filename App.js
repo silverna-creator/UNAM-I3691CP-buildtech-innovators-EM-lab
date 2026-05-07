@@ -1,6 +1,25 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, SafeAreaView } from 'react-native';
 
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAmjvhlExpJwEfkd1Dx0dnJm5cpkwfnOc8",
+  authDomain: "em-lab-app.firebaseapp.com",
+  databaseURL: "https://em-lab-app-default-rtdb.firebaseio.com",
+  projectId: "em-lab-app",
+  storageBucket: "em-lab-app.firebasestorage.app",
+  messagingSenderId: "388695420434",
+  appId: "1:388695420434:web:e0111e1b03221bc353b2cb",
+  measurementId: "G-D0YZ74XX6G"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
 export default function App() {
   const [screen, setScreen] = useState('login'); 
   const [email, setEmail] = useState('');
