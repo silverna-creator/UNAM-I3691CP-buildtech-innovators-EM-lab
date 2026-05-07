@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, SafeAreaView } from 'react-native';
 
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAmjvhlExpJwEfkd1Dx0dnJm5cpkwfnOc8",
@@ -50,17 +50,32 @@ export default function App() {
     setScreen('dashboard');
   };
 
-  const handleSignup = () => {
-    if (!email || !password || !fullName || !companyName || !role) {
-      Alert.alert('Error', 'Please fill in all fields including Company and Role');
+  const handleSignup = async () => {
+    // 1. Basic validation
+    if (!email || !password || !fullName || !role) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
+
+    try {
+      // 2. Create the user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 3. Save the extra details (Role & Company) to Firestore database
+      await setDoc(doc(db, "users", user.uid), {
+        fullName: fullName,
+        company: companyName,
+        role: role,
+        email: email,
+        createdAt: new Date()
+      });
+
+      Alert.alert('Success', 'Account created and role saved!');
+      setScreen('login');
+    } catch (error) {
+      Alert.alert('Signup Error', error.message);
     }
-    Alert.alert('Success', `Account created for ${fullName} at ${companyName}!`);
-    setScreen('login'); 
   };
 
   // --- VIEW 1: DYNAMIC DASHBOARD ---
