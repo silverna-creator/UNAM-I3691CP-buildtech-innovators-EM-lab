@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   loginButton: {
-    backgroundColor: '#2c5f8a',
+    backgroundColor: '#0047AB',
     borderRadius: 12,
     padding: 15,
     alignItems: 'center',
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   signUpText: {
-    color: '#2c5f8a',
+    color: '#00BFFF',
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
