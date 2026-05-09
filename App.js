@@ -319,6 +319,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textDecorationLine: 'underline',
   },
+  signUpText: {
+    color: '#00BFFF',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
   // --- NEW ROLE STYLES ---
   roleBox: {
     backgroundColor: '#2c3e50',
