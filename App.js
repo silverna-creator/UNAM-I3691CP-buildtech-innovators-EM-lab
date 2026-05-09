@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
@@ -21,7 +21,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 export default function App() {
-  const [screen, setScreen] = useState('login'); 
+  const [screen, setScreen] = useState('signup'); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,52 +29,64 @@ export default function App() {
   const [companyName, setCompanyName] = useState('');
   const [role, setRole] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password');
       return;
     }
-    
-    // TEMPORARY LOGIC: This "fakes" a database check
-    // If you type "admin" in the email box, it sets the role to Admin!
-    if (email.toLowerCase().includes('admin')) {
-      setRole('Admin');
-    } else if (email.toLowerCase().includes('tech')) {
-      setRole('Lab Technician');
-    } else if (email.toLowerCase().includes('op')) {
-      setRole('Furnace Operator');
-    } else if (email.toLowerCase().includes('metal')) {
-      setRole('Metallurgist');
+
+    try {
+      // Log the user in
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Fetch their Role from the database
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setRole(userData.role); // This sets the role (Metallurgist, Admin, etc.)
+        setFullName(userData.fullName);
+        setCompanyName(userData.company);
+        setScreen('dashboard');
+      }
+    } catch (error) {
+      Alert.alert('Login Error', 'Invalid email or password');
     }
-    
-    setScreen('dashboard');
   };
 
   const handleSignup = async () => {
-    // 1. Basic validation
+    // 1. Validation
     if (!email || !password || !fullName || !role) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Please fill in all fields for the new staff member.');
       return;
     }
 
     try {
-      // 2. Create the user in Firebase Auth
+      // 2. Create the account
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 3. Save the extra details (Role & Company) to Firestore database
+      // 3. Save to Database
       await setDoc(doc(db, "users", user.uid), {
         fullName: fullName,
-        company: companyName,
+        company: companyName, 
         role: role,
         email: email,
-        createdAt: new Date()
       });
 
-      Alert.alert('Success', 'Account created and role saved!');
-      setScreen('login');
+      // 4. SUCCESS: Reset fields and STAY on this screen
+      Alert.alert('Success', `${fullName} added to ${companyName}. You can now register another person.`);
+      
+      // Clear the inputs for the next entry
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setRole(''); 
+      // NOTE: We do NOT call setScreen here, so the Admin stays on the Signup page.
+
     } catch (error) {
-      Alert.alert('Signup Error', error.message);
+      Alert.alert('Registration Error', error.message);
     }
   };
 
@@ -90,6 +102,12 @@ export default function App() {
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Admin Dashboard</Text>
             <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>Manage Users</Text></TouchableOpacity>
+            <TouchableOpacity 
+      style={styles.roleButton} 
+      onPress={() => setScreen('signup')}
+    >
+      <Text style={styles.buttonText}>Register New Staff</Text>
+    </TouchableOpacity>
             <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>View Lab Reports</Text></TouchableOpacity>
           </View>
         )}
@@ -156,69 +174,71 @@ export default function App() {
   if (screen === 'signup') {
     return (
       <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <Text style={styles.title}>EM-Lab</Text>
-          <Text style={styles.subtitle}>Create an Account</Text>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContainer}>
+            <Text style={styles.title}>EM-Lab</Text>
+            <Text style={styles.subtitle}>Register New Staff</Text>
+            <Text style={{color: '#8e9eae', textAlign: 'center', marginBottom: 20}}>
+              Domain: {companyName || 'EM-Lab'}
+            </Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name"
-            placeholderTextColor="#8e9eae"
-            value={fullName}
-            onChangeText={setFullName}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Staff Full Name"
+              placeholderTextColor="#8e9eae"
+              value={fullName}
+              onChangeText={setFullName}
+            />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Company Name"
-            placeholderTextColor="#8e9eae"
-            value={companyName}
-            onChangeText={setCompanyName}
-          />
+            {/* ROLE SELECTION */}
+            <Text style={{color: '#fff', marginBottom: 10, textAlign: 'center'}}>Assign Role:</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
+              {['Technician', 'Metallurgist', 'Operator'].map((r) => (
+                <TouchableOpacity 
+                  key={r}
+                  style={[styles.roleButton, role === r && { backgroundColor: '#3498db' }]} 
+                  onPress={() => setRole(r)}
+                >
+                  <Text style={styles.buttonText}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Role (e.g. Admin/Staff)"
-            placeholderTextColor="#8e9eae"
-            value={role}
-            onChangeText={setRole}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Staff Email"
+              placeholderTextColor="#8e9eae"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+            />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#8e9eae"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Assign Temporary Password"
+              placeholderTextColor="#8e9eae"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#8e9eae"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+            <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
+              <Text style={styles.loginButtonText}>Confirm & Save Staff</Text>
+            </TouchableOpacity>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm Password"
-            placeholderTextColor="#8e9eae"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
+            {/* THE FIX: This now points exactly to your Dashboard state */}
+            <TouchableOpacity 
+              style={[styles.button, {marginTop: 10, backgroundColor: '#4a5568'}]} 
+              onPress={() => setScreen('dashboard')}
+            >
+              <Text style={styles.buttonText}>Cancel / Back to Dashboard</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
-            <Text style={styles.loginButtonText}>Register</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => setScreen('login')}>
-            <Text style={styles.switchText}>Already have an account? Login</Text>
-          </TouchableOpacity>
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -249,11 +269,7 @@ export default function App() {
       <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => setScreen('signup')}>
-        <Text style={styles.switchText}>Don't have an account? Sign Up</Text>
-      </TouchableOpacity>
-    </View>
+      </View>
   );
 }
 
