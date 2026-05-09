@@ -251,7 +251,10 @@ export default function App() {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => setScreen('signup')}>
-        <Text style={styles.switchText}>Don't have an account? Sign Up</Text>
+        <Text style={styles.switchText}>
+          Don't have an account?{' '}
+          <Text style={styles.signUpText}>Sign Up</Text>
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -320,7 +323,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   signUpText: {
-    color: '#00BFFF',
+    color: '#2c5f8a',
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
