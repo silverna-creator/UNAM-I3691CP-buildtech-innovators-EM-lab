@@ -3,7 +3,13 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView,
 
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  addDoc,
+  collection
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAmjvhlExpJwEfkd1Dx0dnJm5cpkwfnOc8",
@@ -50,34 +56,63 @@ export default function App() {
     setScreen('dashboard');
   };
 
-  const handleSignup = async () => {
-    // 1. Basic validation
-    if (!email || !password || !fullName || !role) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
+const handleSignup = async () => {
 
-    try {
-      // 2. Create the user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+  // 1. Validation
+  if (!email || !password || !fullName || !companyName) {
+    Alert.alert("Error", "Please fill in all fields");
+    return;
+  }
 
-      // 3. Save the extra details (Role & Company) to Firestore database
-      await setDoc(doc(db, "users", user.uid), {
-        fullName: fullName,
-        company: companyName,
-        role: role,
-        email: email,
-        createdAt: new Date()
-      });
+  try {
 
-      Alert.alert('Success', 'Account created and role saved!');
-      setScreen('login');
-    } catch (error) {
-      Alert.alert('Signup Error', error.message);
-    }
-  };
+    // 2. Create Firebase Authentication user
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
 
+    const user = userCredential.user;
+
+    // 3. Create company document
+    const companyRef = await addDoc(collection(db, "companies"), {
+      name: companyName,
+      createdBy: user.uid,
+      createdAt: new Date()
+    });
+
+    // 4. Save lab manager details in Firestore
+    await setDoc(doc(db, "users", user.uid), {
+
+      fullName: fullName,
+      email: email,
+
+      role: "lab_manager",
+
+      companyId: companyRef.id,
+
+      profileCompleted: true,
+
+      createdAt: new Date()
+
+    });
+
+    Alert.alert(
+      "Success",
+      "Company and Lab Manager account created successfully"
+    );
+
+    // 5. Redirect to manager dashboard
+    setScreen("ManagerDashboard");
+
+  } catch (error) {
+
+    Alert.alert("Signup Error", error.message);
+
+  }
+};  
+        
   // --- VIEW 1: DYNAMIC DASHBOARD ---
   if (screen === 'dashboard') {
     return (
