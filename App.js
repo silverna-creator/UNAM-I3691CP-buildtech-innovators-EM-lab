@@ -5,6 +5,7 @@ import { initializeApp } from "firebase/app";
 import { initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sendPasswordResetEmail } from "firebase/auth";
 
 // --- CONFIGURATION ---
 const firebaseConfig = {
@@ -36,7 +37,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // If we are currently in the middle of registering a new person, don't interrupt
-      if (screen === 'signup') return; 
+      if (screen === 'signup' || screen === 'profile') return; 
 
       if (user) {
         try {
@@ -91,6 +92,21 @@ export default function App() {
     setPassword('');
     setScreen('login');
   };
+
+  const handlePasswordReset = () => {
+  if (!email) {
+    Alert.alert("Error", "No email found for this profile.");
+    return;
+  }
+  sendPasswordResetEmail(auth, email)
+    .then(() => {
+      Alert.alert("Check your Email", `A password reset link has been sent to ${email}`);
+    })
+    .catch((error) => {
+      Alert.alert("Error", error.message);
+    });
+};
+
 
   const handleSignup = async () => {
     if (!email || !password || !fullName || !role || !companyName) {
@@ -176,6 +192,15 @@ export default function App() {
            <Text style={styles.buttonText}>Role: {role}</Text>
            <Text style={styles.buttonText}>Company: {companyName}</Text>
         </View>
+
+        {/* New Security Feature: Password Reset */}
+        <TouchableOpacity 
+          style={[styles.roleButton, {backgroundColor: '#3498db', marginTop: 10}]} 
+          onPress={handlePasswordReset}
+        >
+          <Text style={styles.buttonText}>Change Password</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
           <Text style={styles.buttonText}>Back to Dashboard</Text>
         </TouchableOpacity>
@@ -190,14 +215,17 @@ export default function App() {
           <ScrollView contentContainerStyle={styles.scrollContainer}>
             <Text style={styles.title}>EM-Lab</Text>
             <Text style={styles.subtitle}>Registration</Text>
+            
             <TextInput style={styles.input} placeholder="Full Name" value={fullName} onChangeText={setFullName} />
             <TextInput style={styles.input} placeholder="Company Name" value={companyName} onChangeText={setCompanyName} />
             <TextInput style={styles.input} placeholder="Role (e.g. Admin/Staff)" value={role} onChangeText={setRole} />
             <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
             <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
+            
             <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
               <Text style={styles.loginButtonText}>Register</Text>
             </TouchableOpacity>
+
             <TouchableOpacity onPress={() => setScreen('dashboard')}>
               <Text style={styles.switchText}>Back to Dashboard</Text>
             </TouchableOpacity>
