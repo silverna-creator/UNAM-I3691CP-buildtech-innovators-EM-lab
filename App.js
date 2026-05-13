@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { initializeApp } from "firebase/app";
-import { initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { sendPasswordResetEmail } from "firebase/auth";
+
 
 // --- CONFIGURATION ---
 const firebaseConfig = {
@@ -19,10 +19,20 @@ const firebaseConfig = {
   measurementId: "G-D0YZ74XX6G"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage)
-});
+// --- SAFE INITIALIZATION ---
+// Check if an app instance already exists
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// Check if Auth is already initialized to avoid the [auth/already-initialized] error
+let auth;
+if (getApps().length > 0) {
+  auth = getAuth(app);
+} else {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+}
+
 const db = getFirestore(app);
 
 export default function App() {
@@ -47,6 +57,7 @@ export default function App() {
             setFullName(userData.fullName);
             setRole(userData.role);
             setCompanyName(userData.company);
+            setEmail(userData.email);
             setScreen('dashboard');
           } else {
             setScreen('login');
@@ -107,6 +118,19 @@ export default function App() {
     });
 };
 
+const handleForgotPassword = () => {
+    if (!email) {
+      Alert.alert("Input Required", "Please enter your email address in the input field above first.");
+      return;
+    }
+    sendPasswordResetEmail(auth, email)
+      .then(() => {
+        Alert.alert("Success", "A password reset link has been sent to your email.");
+      })
+      .catch((error) => {
+        Alert.alert("Error", error.message);
+      });
+  };
 
   const handleSignup = async () => {
     if (!email || !password || !fullName || !role || !companyName) {
@@ -143,6 +167,11 @@ export default function App() {
       Alert.alert('Signup Error', error.message);
     }
   };
+
+  return (
+    <SafeAreaProvider>
+      {/* We use this helper function to decide which "room" to show inside our building envelope */}
+      {(() => {
 
   // --- VIEWS ---
   if (screen === 'loading') {
@@ -245,6 +274,9 @@ export default function App() {
       <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
         <Text style={styles.loginButtonText}>Login</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 15 }}>
+  <Text style={[styles.switchText, { textDecorationLine: 'underline' }]}>Forgot Password?</Text>
+</TouchableOpacity>
 
       <View style={{ marginTop: 20 }}>
         <Text style={styles.switchText}>Staff: Contact your Manager for access.</Text>
@@ -255,6 +287,11 @@ export default function App() {
         </TouchableOpacity>
       </View>
     </View>
+
+  
+  );
+})()}
+    </SafeAreaProvider>
   );
 }
 
