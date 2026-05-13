@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ScrollView, 
+  KeyboardAvoidingView, 
+  Platform 
+} from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from "firebase/auth";
+import { getAuth, initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, reauthenticateWithCredential,
+  EmailAuthProvider,
+  updatePassword } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -42,12 +55,16 @@ export default function App() {
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [role, setRole] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+const [newPassword, setNewPassword] = useState('');
+const [confirmPassword, setConfirmPassword] = useState('');
+const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // --- PERSISTENCE GUARD ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // If we are currently in the middle of registering a new person, don't interrupt
-      if (screen === 'signup' || screen === 'profile') return; 
+      if (screen === 'dashboard' || screen === 'signup' || screen === 'profile') return; 
 
       if (user) {
         try {
@@ -70,7 +87,7 @@ export default function App() {
       }
     });
     return unsubscribe;
-  }, [screen]);
+  }, []);
 
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
@@ -104,6 +121,25 @@ export default function App() {
     setScreen('login');
   };
 
+  const handleInternalPasswordChange = async (currentPassword, newPassword) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+
+    try {
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+      Alert.alert("Success", "Password updated successfully!");
+      // Reset the local password states so they don't stay in memory
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setIsChangingPassword(false);
+    } catch (error) {
+      Alert.alert("Security Error", "Current password incorrect or session expired.");
+    }
+  };
   const handlePasswordReset = () => {
   if (!email) {
     Alert.alert("Error", "No email found for this profile.");
@@ -212,24 +248,74 @@ const handleForgotPassword = () => {
     );
   }
 
-  if (screen === 'profile') {
+ if (screen === 'profile') {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Profile</Text>
+        
+        {/* User Info Section */}
         <View style={styles.roleBox}>
            <Text style={styles.buttonText}>Name: {fullName}</Text>
            <Text style={styles.buttonText}>Role: {role}</Text>
            <Text style={styles.buttonText}>Company: {companyName}</Text>
         </View>
 
-        {/* New Security Feature: Password Reset */}
-        <TouchableOpacity 
-          style={[styles.roleButton, {backgroundColor: '#3498db', marginTop: 10}]} 
-          onPress={handlePasswordReset}
-        >
-          <Text style={styles.buttonText}>Change Password</Text>
-        </TouchableOpacity>
+        {/* Password Management Logic */}
+        {isChangingPassword ? (
+          <View style={styles.roleBox}>
+            <Text style={styles.roleTitle}>Update Security</Text>
+            
+            <TextInput 
+              style={styles.input} 
+              placeholder="Current Password" 
+              secureTextEntry 
+              value={currentPassword}
+              onChangeText={setCurrentPassword} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="New Password" 
+              secureTextEntry 
+              value={newPassword}
+              onChangeText={setNewPassword} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Confirm New Password" 
+              secureTextEntry 
+              value={confirmPassword}
+              onChangeText={setConfirmPassword} 
+            />
+            
+            <TouchableOpacity 
+              style={styles.loginButton} 
+              onPress={() => {
+                if (newPassword === confirmPassword && newPassword.length >= 6) {
+                  handleInternalPasswordChange(currentPassword, newPassword);
+                } else if (newPassword.length < 6) {
+                  Alert.alert("Error", "New password must be at least 6 characters");
+                } else {
+                  Alert.alert("Error", "Passwords do not match");
+                }
+              }}
+            >
+              <Text style={styles.loginButtonText}>Save New Password</Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity onPress={() => setIsChangingPassword(false)}>
+              <Text style={[styles.switchText, { textDecorationLine: 'none', color: '#e74c3c' }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.roleButton, {backgroundColor: '#3498db', marginTop: 10}]} 
+            onPress={() => setIsChangingPassword(true)}
+          >
+            <Text style={styles.buttonText}>Change Password</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Navigation Back */}
         <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
           <Text style={styles.buttonText}>Back to Dashboard</Text>
         </TouchableOpacity>
