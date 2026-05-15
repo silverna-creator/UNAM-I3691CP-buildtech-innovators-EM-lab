@@ -20,6 +20,7 @@ import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs } 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
+
 // --- CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyAmjvhlExpJwEfkd1Dx0dnJm5cpkwfnOc8",
@@ -36,13 +37,17 @@ const firebaseConfig = {
 // Check if an app instance already exists
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Check if Auth is already initialized to avoid the [auth/already-initialized] error
 let auth;
 if (getApps().length > 0) {
   auth = getAuth(app);
 } else {
+  // We determine the persistence "material" based on the platform
+  const persistenceMode = Platform.OS === 'web' 
+    ? browserLocalPersistence 
+    : getReactNativePersistence(AsyncStorage);
+
   auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
+    persistence: persistenceMode
   });
 }
 
@@ -60,35 +65,47 @@ const [newPassword, setNewPassword] = useState('');
 const [confirmPassword, setConfirmPassword] = useState('');
 const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  // --- PERSISTENCE GUARD ---
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // If we are currently in the middle of registering a new person, don't interrupt
-      if (screen === 'dashboard' || screen === 'signup' || screen === 'profile') return; 
+// --- ADD THIS LINE ---
+  const [isReady, setIsReady] = useState(false);
 
-      if (user) {
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setFullName(userData.fullName);
-            setRole(userData.role);
-            setCompanyName(userData.company);
-            setEmail(userData.email);
-            setScreen('dashboard');
-          } else {
-            setScreen('login');
-          }
-        } catch (error) {
-          setScreen('login');
-        }
-      } else {
-        setScreen('login');
-      }
+  // --- ADD THIS EFFECT TO ACTIVATE IT ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setIsReady(true); // This tells the app the "foundation" is set
     });
     return unsubscribe;
   }, []);
 
+ useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setFullName(userData.fullName);
+          setRole(userData.role);
+          // This fetches the company dynamically from the database
+          setCompanyName(userData.company && userData.company !== "" ? userData.company : "Unam"); 
+          setEmail(userData.email || user.email);
+          setScreen('dashboard');
+        }
+      } else {
+        setScreen('login');
+      }
+      setIsReady(true); // Foundation is set!
+    });
+    return unsubscribe;
+  }, []);
+
+  if (!isReady || screen === 'loading') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>EM-Lab</Text>
+        <Text style={styles.subtitle}>Securing Session...</Text>
+      </View>
+    );
+  }
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
     if (!email || !password) {
@@ -103,13 +120,21 @@ const [isChangingPassword, setIsChangingPassword] = useState(false);
         const userData = userDoc.data();
         setRole(userData.role);
         setFullName(userData.fullName);
-        setCompanyName(userData.company);
+        setCompanyName(userData.company || "No Company Registered");
+        setEmail(user.email);
         setScreen('dashboard');
       }
     } catch (error) {
-      Alert.alert('Login Error', 'Invalid email or password');
-    }
-  };
+  console.error("Login Error details:", error.code); // Helps you debug in the console
+  
+  // This works on both Web and Mobile
+  if (Platform.OS === 'web') {
+    alert('Login Error: Invalid email or password');
+  } else {
+    Alert.alert('Login Error', 'Invalid email or password');
+  }
+}
+};
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -223,7 +248,13 @@ const handleForgotPassword = () => {
         {role.toLowerCase() === 'admin' && (
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Admin Dashboard</Text>
-            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('signup')}>
+            <TouchableOpacity style={styles.roleButton} onPress={() => {
+        setFullName('');
+        setEmail('');
+        setPassword('');
+        setScreen('signup');
+      }}
+    >
               <Text style={styles.buttonText}>Register New Staff</Text>
             </TouchableOpacity>
           </View>
@@ -257,7 +288,7 @@ const handleForgotPassword = () => {
         <View style={styles.roleBox}>
            <Text style={styles.buttonText}>Name: {fullName}</Text>
            <Text style={styles.buttonText}>Role: {role}</Text>
-           <Text style={styles.buttonText}>Company: {companyName}</Text>
+           <Text style={styles.buttonText}>Company: {companyName || "Company Not Set"}</Text>
         </View>
 
         {/* Password Management Logic */}
