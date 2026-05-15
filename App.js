@@ -13,13 +13,21 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, initializeAuth, getReactNativePersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, reauthenticateWithCredential,
+import { 
+  getAuth, 
+  initializeAuth,
+  browserLocalPersistence, // Added this import
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged, 
+  sendPasswordResetEmail, 
+  reauthenticateWithCredential,
   EmailAuthProvider,
-  updatePassword } from "firebase/auth";
+  updatePassword
+} from "firebase/auth";
+
 import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
 
 // --- CONFIGURATION ---
 const firebaseConfig = {
@@ -34,21 +42,24 @@ const firebaseConfig = {
 };
 
 // --- SAFE INITIALIZATION ---
-// Check if an app instance already exists
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
+// --- AUTH INITIALIZATION ---
 let auth;
-if (getApps().length > 0) {
+
+if (Platform.OS === 'web') {
+  // Web handles its own persistence automatically with getAuth
   auth = getAuth(app);
 } else {
-  // We determine the persistence "material" based on the platform
-  const persistenceMode = Platform.OS === 'web' 
-    ? browserLocalPersistence 
-    : getReactNativePersistence(AsyncStorage);
-
-  auth = initializeAuth(app, {
-    persistence: persistenceMode
-  });
+  // Mobile (Android/iOS)
+  try {
+    const { getReactNativePersistence } = require('firebase/auth/react-native');
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch (e) {
+    auth = getAuth(app);
+  }
 }
 
 const db = getFirestore(app);
@@ -60,81 +71,66 @@ export default function App() {
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [role, setRole] = useState('');
+  const [user, setUser] = useState(null); // Added missing user state
+  const [isAdmin, setIsAdmin] = useState(false); // Added missing isAdmin state
+  
   const [currentPassword, setCurrentPassword] = useState('');
-const [newPassword, setNewPassword] = useState('');
-const [confirmPassword, setConfirmPassword] = useState('');
-const [isChangingPassword, setIsChangingPassword] = useState(false);
-
-// --- ADD THIS LINE ---
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
-  // --- ADD THIS EFFECT TO ACTIVATE IT ---
+  // --- SINGLE AUTH EFFECT (STABILIZED) ---
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setIsReady(true); // This tells the app the "foundation" is set
-    });
-    return unsubscribe;
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
+      if (authenticatedUser) {
+        setUser(authenticatedUser);
+        
+        // We set isReady immediately so the screen shows up 
+        // while we fetch the extra data in the background
+        setIsReady(true); 
 
- useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setFullName(userData.fullName);
-          setRole(userData.role);
-          // This fetches the company dynamically from the database
-          setCompanyName(userData.company && userData.company !== "" ? userData.company : "Unam"); 
-          setEmail(userData.email || user.email);
-          setScreen('dashboard');
+        try {
+          const userDoc = await getDoc(doc(db, "users", authenticatedUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setFullName(userData.fullName || "");
+            setRole(userData.role || "");
+            setCompanyName(userData.company || "Unam");
+            setEmail(userData.email || authenticatedUser.email);
+            setScreen('dashboard');
+          } else {
+            // If user exists in Auth but not in Firestore
+            setScreen('login');
+          }
+        } catch (error) {
+          console.error("Database fetch error:", error);
+          setScreen('login');
         }
       } else {
+        setUser(null);
+        setIsReady(true); // Still set to true so Login shows up
         setScreen('login');
       }
-      setIsReady(true); // Foundation is set!
     });
     return unsubscribe;
   }, []);
 
-  if (!isReady || screen === 'loading') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>EM-Lab</Text>
-        <Text style={styles.subtitle}>Securing Session...</Text>
-      </View>
-    );
-  }
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+      const msg = 'Please enter email and password';
+      Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
       return;
     }
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setRole(userData.role);
-        setFullName(userData.fullName);
-        setCompanyName(userData.company || "No Company Registered");
-        setEmail(user.email);
-        setScreen('dashboard');
-      }
+      // Data fetching is handled by the useEffect above
     } catch (error) {
-  console.error("Login Error details:", error.code); // Helps you debug in the console
-  
-  // This works on both Web and Mobile
-  if (Platform.OS === 'web') {
-    alert('Login Error: Invalid email or password');
-  } else {
-    Alert.alert('Login Error', 'Invalid email or password');
-  }
-}
-};
+      const msg = 'Login Error: Invalid email or password';
+      Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
+    }
+  };
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -146,97 +142,85 @@ const [isChangingPassword, setIsChangingPassword] = useState(false);
     setScreen('login');
   };
 
-  const handleInternalPasswordChange = async (currentPassword, newPassword) => {
-    const user = auth.currentUser;
-    if (!user) return;
-    
-    const credential = EmailAuthProvider.credential(user.email, currentPassword);
-
-    try {
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, newPassword);
-      Alert.alert("Success", "Password updated successfully!");
-      // Reset the local password states so they don't stay in memory
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setIsChangingPassword(false);
-    } catch (error) {
-      Alert.alert("Security Error", "Current password incorrect or session expired.");
-    }
-  };
-  const handlePasswordReset = () => {
-  if (!email) {
-    Alert.alert("Error", "No email found for this profile.");
-    return;
-  }
-  sendPasswordResetEmail(auth, email)
-    .then(() => {
-      Alert.alert("Check your Email", `A password reset link has been sent to ${email}`);
-    })
-    .catch((error) => {
-      Alert.alert("Error", error.message);
-    });
-};
-
-const handleForgotPassword = () => {
-    if (!email) {
-      Alert.alert("Input Required", "Please enter your email address in the input field above first.");
-      return;
-    }
-    sendPasswordResetEmail(auth, email)
-      .then(() => {
-        Alert.alert("Success", "A password reset link has been sent to your email.");
-      })
-      .catch((error) => {
-        Alert.alert("Error", error.message);
-      });
-  };
-
   const handleSignup = async () => {
-    if (!email || !password || !fullName || !role || !companyName) {
+    const assignedRole = auth.currentUser ? role : 'Admin'; 
+
+    if (!email || !password || !fullName || !assignedRole || !companyName) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     try {
-      // CHECK FOR DUPLICATE COMPANY (Admins only)
-      if (role.toLowerCase() === 'admin') {
+      if (!auth.currentUser && assignedRole === 'Admin') {
         const companyQuery = query(collection(db, "users"), where("company", "==", companyName));
         const querySnapshot = await getDocs(companyQuery);
         if (!querySnapshot.empty) {
-          Alert.alert("Name Taken", "This Company Name is already registered. Please use a unique name (e.g., UNAM 2.0).");
+          Alert.alert("Name Taken", "This Company Name is already registered.");
           return;
         }
       }
 
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const newUser = userCredential.user;
 
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(doc(db, "users", newUser.uid), {
         fullName: fullName,
         company: companyName,
-        role: role,
+        role: assignedRole,
         email: email,
         createdAt: new Date()
       });
 
-      Alert.alert('Success', 'Account created successfully!');
-      // Return to Dashboard after Admin registers someone
-      setScreen('dashboard');
+      if (auth.currentUser && auth.currentUser.uid !== newUser.uid) {
+        Alert.alert('Success', `Staff member ${fullName} registered!`);
+        setScreen('dashboard');
+      } else {
+        Alert.alert('Success', 'Account created! Please log in.');
+        setScreen('login');
+      }
     } catch (error) {
       Alert.alert('Signup Error', error.message);
     }
   };
 
-  return (
-    <SafeAreaProvider>
-      {/* We use this helper function to decide which "room" to show inside our building envelope */}
-      {(() => {
+  const handleForgotPassword = () => {
+    if (!email) {
+      const msg = "Please enter your email address first.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Input Required", msg);
+      return;
+    }
+    sendPasswordResetEmail(auth, email)
+      .then(() => {
+        const msg = "A password reset link has been sent to your email.";
+        Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
+      })
+      .catch((error) => {
+        Platform.OS === 'web' ? alert(error.message) : Alert.alert("Error", error.message);
+      });
+  };
 
-  // --- VIEWS ---
-  if (screen === 'loading') {
-    return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
+  const handleInternalPasswordChange = async (currentPassword, newPassword) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    try {
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+      Alert.alert("Success", "Password updated successfully!");
+      setIsChangingPassword(false);
+    } catch (error) {
+      Alert.alert("Error", "Authentication failed.");
+    }
+  };
+
+  // --- SCREEN RENDERING ---
+  if (!isReady || screen === 'loading') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>EM-Lab</Text>
+        <Text style={styles.subtitle}>Securing Session...</Text>
+      </View>
+    );
   }
 
   if (screen === 'dashboard') {
@@ -244,34 +228,26 @@ const handleForgotPassword = () => {
       <View style={styles.container}>
         <Text style={styles.title}>EM-Lab</Text>
         <Text style={styles.subtitle}>{companyName} - {role}</Text>
-
         {role.toLowerCase() === 'admin' && (
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Admin Dashboard</Text>
             <TouchableOpacity style={styles.roleButton} onPress={() => {
-        setFullName('');
-        setEmail('');
-        setPassword('');
-        setScreen('signup');
-      }}
-    >
+                setFullName(''); setEmail(''); setPassword(''); setRole('');
+                setScreen('signup');
+              }}>
               <Text style={styles.buttonText}>Register New Staff</Text>
             </TouchableOpacity>
           </View>
         )}
-
-        {/* ... Other Role Boxes stay as they were ... */}
         {role.toLowerCase() === 'lab technician' && (
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Technician Portal</Text>
             <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>Log Test Results</Text></TouchableOpacity>
           </View>
         )}
-
         <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
           <Text style={styles.buttonText}>View Profile</Text>
         </TouchableOpacity>
-
         <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
@@ -279,74 +255,32 @@ const handleForgotPassword = () => {
     );
   }
 
- if (screen === 'profile') {
+  if (screen === 'profile') {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Profile</Text>
-        
-        {/* User Info Section */}
         <View style={styles.roleBox}>
-           <Text style={styles.buttonText}>Name: {fullName}</Text>
-           <Text style={styles.buttonText}>Role: {role}</Text>
-           <Text style={styles.buttonText}>Company: {companyName || "Company Not Set"}</Text>
+            <Text style={styles.buttonText}>Name: {fullName}</Text>
+            <Text style={styles.buttonText}>Role: {role}</Text>
+            <Text style={styles.buttonText}>Company: {companyName}</Text>
         </View>
-
-        {/* Password Management Logic */}
         {isChangingPassword ? (
           <View style={styles.roleBox}>
-            <Text style={styles.roleTitle}>Update Security</Text>
-            
-            <TextInput 
-              style={styles.input} 
-              placeholder="Current Password" 
-              secureTextEntry 
-              value={currentPassword}
-              onChangeText={setCurrentPassword} 
-            />
-            <TextInput 
-              style={styles.input} 
-              placeholder="New Password" 
-              secureTextEntry 
-              value={newPassword}
-              onChangeText={setNewPassword} 
-            />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Confirm New Password" 
-              secureTextEntry 
-              value={confirmPassword}
-              onChangeText={setConfirmPassword} 
-            />
-            
-            <TouchableOpacity 
-              style={styles.loginButton} 
-              onPress={() => {
-                if (newPassword === confirmPassword && newPassword.length >= 6) {
-                  handleInternalPasswordChange(currentPassword, newPassword);
-                } else if (newPassword.length < 6) {
-                  Alert.alert("Error", "New password must be at least 6 characters");
-                } else {
-                  Alert.alert("Error", "Passwords do not match");
-                }
-              }}
-            >
+            <TextInput style={styles.input} placeholder="Current Password" secureTextEntry value={currentPassword} onChangeText={setCurrentPassword} />
+            <TextInput style={styles.input} placeholder="New Password" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
+            <TextInput style={styles.input} placeholder="Confirm New Password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
+            <TouchableOpacity style={styles.loginButton} onPress={() => handleInternalPasswordChange(currentPassword, newPassword)}>
               <Text style={styles.loginButtonText}>Save New Password</Text>
             </TouchableOpacity>
-
             <TouchableOpacity onPress={() => setIsChangingPassword(false)}>
               <Text style={[styles.switchText, { textDecorationLine: 'none', color: '#e74c3c' }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity 
-            style={[styles.roleButton, {backgroundColor: '#3498db', marginTop: 10}]} 
-            onPress={() => setIsChangingPassword(true)}
-          >
+          <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#3498db', marginTop: 10}]} onPress={() => setIsChangingPassword(true)}>
             <Text style={styles.buttonText}>Change Password</Text>
           </TouchableOpacity>
         )}
-
-        {/* Navigation Back */}
         <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
           <Text style={styles.buttonText}>Back to Dashboard</Text>
         </TouchableOpacity>
@@ -354,75 +288,222 @@ const handleForgotPassword = () => {
     );
   }
 
+  // --- EMERGENCY RENDER GUARD ---
+  // If we are on the signup screen, we show it NO MATTER WHAT.
   if (screen === 'signup') {
+    // This is your current signup return block...
     return (
-      <SafeAreaView style={styles.container}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.scrollContainer}>
-            <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>Registration</Text>
-            
-            <TextInput style={styles.input} placeholder="Full Name" value={fullName} onChangeText={setFullName} />
-            <TextInput style={styles.input} placeholder="Company Name" value={companyName} onChangeText={setCompanyName} />
-            <TextInput style={styles.input} placeholder="Role (e.g. Admin/Staff)" value={role} onChangeText={setRole} />
-            <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
-            <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-            
-            <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
-              <Text style={styles.loginButtonText}>Register</Text>
-            </TouchableOpacity>
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+           <SafeAreaView style={styles.container}>
+             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+               <ScrollView contentContainerStyle={styles.scrollContainer}>
+                 <Text style={styles.title}>EM-Lab</Text>
+                 <Text style={styles.subtitle}>{auth.currentUser ? "Staff Registration" : "Manager Registration"}</Text>
+                 
+                 <TextInput style={styles.input} placeholder="Full Name" value={fullName} onChangeText={setFullName} placeholderTextColor="#888" />
+                 <TextInput style={styles.input} placeholder="Company Name" value={companyName} onChangeText={setCompanyName} placeholderTextColor="#888" />
+                 {/* --- START OF ADAPTIVE ROLE SECTION --- */}
+{auth.currentUser ? (
+  /* This shows when an Admin is registering a Staff member */
+  <TextInput 
+    style={styles.input} 
+    placeholder="Staff Role (e.g. Lab Technician)" 
+    value={role} 
+    onChangeText={setRole} 
+    placeholderTextColor="#888" 
+  />
+) : (
+  /* This shows when a new Manager is registering a Company */
+  <View style={[styles.roleBox, { 
+    marginTop: 0, 
+    marginBottom: 15, 
+    borderColor: '#f1c40f', 
+    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+    borderWidth: 1,
+    padding: 15,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center'
+  }]}>
+    <Text style={{ fontSize: 24, marginRight: 12 }}>🛡️</Text>
+    <View>
+      <Text style={{ color: '#f1c40f', fontWeight: 'bold', fontSize: 14 }}>
+        SECURITY VERIFIED
+      </Text>
+      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '500' }}>
+        Role: Company Administrator
+      </Text>
+    </View>
+  </View>
+)}
+{/* --- END OF ADAPTIVE ROLE SECTION --- */}
+                 <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" placeholderTextColor="#888" />
+                 <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#888" />
 
-            <TouchableOpacity onPress={() => setScreen('dashboard')}>
-              <Text style={styles.switchText}>Back to Dashboard</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+                 <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
+                   <Text style={styles.loginButtonText}>Register</Text>
+                 </TouchableOpacity>
+
+                 <TouchableOpacity onPress={() => auth.currentUser ? setScreen('dashboard') : setScreen('login')}>
+                   <Text style={styles.switchText}>{auth.currentUser ? "Back to Dashboard" : "Back to Login"}</Text>
+                 </TouchableOpacity>
+               </ScrollView>
+             </KeyboardAvoidingView>
+           </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
     );
   }
 
-  // --- LOGIN VIEW (Default) ---
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>EM-Lab</Text>
-      <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
-      <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
-      <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-        <Text style={styles.loginButtonText}>Login</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 15 }}>
-  <Text style={[styles.switchText, { textDecorationLine: 'underline' }]}>Forgot Password?</Text>
-</TouchableOpacity>
-
-      <View style={{ marginTop: 20 }}>
-        <Text style={styles.switchText}>Staff: Contact your Manager for access.</Text>
-        <TouchableOpacity onPress={() => setScreen('signup')}>
-          <Text style={[styles.switchText, { marginTop: 10, textDecorationLine: 'none' }]}>
-            Are you a Lab Manager? <Text style={styles.signUpText}>Register your Company</Text>
-          </Text>
-        </TouchableOpacity>
+  // Only show the loading screen for the Dashboard/Login, NOT the signup
+  if (!isReady && screen !== 'signup') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>EM-Lab</Text>
+        <Text style={styles.subtitle}>Securing Session...</Text>
       </View>
-    </View>
+    );
+  }
 
-  
-  );
-})()}
+ return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+        {/* --- 1. SIGNUP SCREEN (Highest Priority) --- */}
+        {screen === 'signup' && (
+          <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <ScrollView contentContainerStyle={styles.scrollContainer}>
+                <Text style={styles.title}>EM-Lab</Text>
+                <Text style={styles.subtitle}>
+                  {auth.currentUser ? "Staff Registration Portal" : "Company Manager Registration"}
+                </Text>
+                
+                <TextInput style={styles.input} placeholder="Full Name" value={fullName} onChangeText={setFullName} placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Company Name" value={companyName} onChangeText={setCompanyName} placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Role (e.g. Lab Technician)" value={role} onChangeText={setRole} placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#888" />
+                
+                {!auth.currentUser && (
+                  <TouchableOpacity 
+                    style={[styles.roleBox, { marginTop: 5, backgroundColor: isAdmin ? '#0047AB' : '#2c3e50', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]} 
+                    onPress={() => setIsAdmin(!isAdmin)}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>Register as Company Admin</Text>
+                    <View style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: '#3498db', backgroundColor: isAdmin ? '#3498db' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                      {isAdmin && <Text style={{ color: '#fff', fontSize: 12 }}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
+                  <Text style={styles.loginButtonText}>Register</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => auth.currentUser ? setScreen('dashboard') : setScreen('login')}>
+                  <Text style={styles.switchText}>
+                    {auth.currentUser ? "Back to Dashboard" : "Back to Login"}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        )}
+
+        {/* --- 2. LOADING SCREEN --- */}
+        {screen === 'loading' && !isReady && (
+          <View style={styles.container}>
+            <Text style={styles.title}>EM-Lab</Text>
+            <Text style={styles.subtitle}>Securing Session...</Text>
+          </View>
+        )}
+
+        {/* --- 3. DASHBOARD SCREEN --- */}
+        {screen === 'dashboard' && (
+          <View style={styles.container}>
+            <Text style={styles.title}>EM-Lab</Text>
+            <Text style={styles.subtitle}>{companyName} - {role}</Text>
+            {role.toLowerCase() === 'admin' && (
+              <View style={styles.roleBox}>
+                <Text style={styles.roleTitle}>Admin Dashboard</Text>
+                <TouchableOpacity style={styles.roleButton} onPress={() => {
+                    setFullName(''); setEmail(''); setPassword(''); setRole('');
+                    setScreen('signup');
+                }}>
+                  <Text style={styles.buttonText}>Register New Staff</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
+              <Text style={styles.buttonText}>View Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
+              <Text style={styles.buttonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* --- 4. PROFILE SCREEN --- */}
+        {screen === 'profile' && (
+          <View style={styles.container}>
+            <Text style={styles.title}>Profile</Text>
+            <View style={styles.roleBox}>
+              <Text style={styles.buttonText}>Name: {fullName}</Text>
+              <Text style={styles.buttonText}>Role: {role}</Text>
+              <Text style={styles.buttonText}>Company: {companyName}</Text>
+            </View>
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
+              <Text style={styles.buttonText}>Back to Dashboard</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* --- 5. LOGIN SCREEN (Default) --- */}
+        {screen === 'login' && (
+          <View style={styles.container}>
+            <Text style={styles.title}>EM-Lab</Text>
+            <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
+            <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" placeholderTextColor="#888" />
+            <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#888" />
+            
+            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+              <Text style={styles.loginButtonText}>Login</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 15 }}>
+              <Text style={[styles.switchText, { textDecorationLine: 'underline' }]}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            <View style={{ marginTop: 20 }}>
+              <Text style={styles.switchText}>Staff: Contact your Manager for access.</Text>
+              <TouchableOpacity onPress={() => {
+                 setFullName(''); setEmail(''); setPassword(''); setRole(''); setCompanyName('');
+                 setScreen('signup');
+              }}>
+                <Text style={[styles.switchText, { marginTop: 10, textDecorationLine: 'none' }]}>
+                  Are you a Lab Manager? <Text style={styles.signUpText}>Register your Company</Text>
+                </Text>  
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', padding: 20 },
-  scrollContainer: { flexGrow: 1, padding: 20, justifyContent: 'center' },
+  scrollContainer: { flexGrow: 1, paddingVertical: 40, justifyContent: 'center' },
   title: { fontSize: 42, fontWeight: 'bold', textAlign: 'center', color: '#ffffff', marginBottom: 10 },
   subtitle: { fontSize: 16, textAlign: 'center', color: '#c8d4e6', marginBottom: 40 },
-  input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16 },
+  input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000' },
   loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10 },
   loginButtonText: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
   button: { backgroundColor: '#2c5f8a', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
   buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  switchText: { color: '#c8d4e6', textAlign: 'center', marginTop: 20, textDecorationLine: 'underline' },
+  switchText: { color: '#c8d4e6', textAlign: 'center', marginTop: 20 },
   signUpText: { color: '#3498db', fontWeight: 'bold' },
   roleBox: { backgroundColor: '#2c3e50', padding: 20, borderRadius: 15, marginVertical: 20, borderWidth: 1, borderColor: '#3498db' },
   roleTitle: { color: '#3498db', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
