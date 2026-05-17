@@ -115,7 +115,7 @@ export default function App() {
       }
     });
     return unsubscribe;
-  }, []);
+  }, []); 
 
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
