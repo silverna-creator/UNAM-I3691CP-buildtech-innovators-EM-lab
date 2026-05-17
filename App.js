@@ -86,6 +86,9 @@ const [regRole, setRegRole] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
+  const [maxFurnaceTemp, setMaxFurnaceTemp] = useState('1200'); // Default threshold in °C
+const [isLabActive, setIsLabActive] = useState(true);
+
   // --- SINGLE AUTH EFFECT (STABILIZED) ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -334,7 +337,14 @@ const handleSignup = async () => {
             >
               <Text style={styles.buttonText}>📋 View Active Staff Directory</Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.roleButton, { backgroundColor: '#e67e22', marginTop: 10 }]} 
+              onPress={() => setScreen('system_settings')}
+            >
+              <Text style={styles.buttonText}>⚙️ Manage System Settings</Text>
+            </TouchableOpacity>
           </View>
+        
         )}
 
         {/* --- 2. LAB TECHNICIAN PORTAL --- */}
@@ -450,6 +460,58 @@ const handleSignup = async () => {
       </SafeAreaProvider>
     );
   }
+
+  if (screen === 'system_settings') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>System Settings</Text>
+            <Text style={styles.subtitle}>Configure Laboratory Parameters</Text>
+
+            <View style={[styles.roleBox, { width: '100%', padding: 20 }]}>
+              <Text style={{ color: '#f1c40f', fontWeight: 'bold', marginBottom: 15 }}>🔥 FURNACE THRESHOLDS</Text>
+              
+              <Text style={{ color: '#fff', marginBottom: 8, fontSize: 14 }}>Max Temperature Limit (°C):</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: '#232931', color: '#fff', marginBottom: 20 }]}
+                keyboardType="numeric"
+                value={maxFurnaceTemp}
+                onChangeText={setMaxFurnaceTemp}
+                placeholder="e.g., 1200"
+              />
+
+              <Text style={{ color: '#f1c40f', fontWeight: 'bold', marginBottom: 15, marginTop: 10 }}>🏢 LAB STATUS</Text>
+              <TouchableOpacity 
+                style={[styles.roleButton, { backgroundColor: isLabActive ? '#27ae60' : '#c0392b', width: '100%' }]}
+                onPress={() => setIsLabActive(!isLabActive)}
+              >
+                <Text style={styles.buttonText}>
+                  System Status: {isLabActive ? "ACTIVE (RECEIVING SAMPLES)" : "INACTIVE (PAUSED)"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.roleButton, { marginTop: 20, backgroundColor: '#2980b9' }]} 
+              onPress={() => {
+                const msg = "System configurations updated successfully!";
+                Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
+                setScreen('dashboard');
+              }}
+            >
+              <Text style={styles.buttonText}>💾 Save Configurations</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#7f8c8d', marginTop: 10 }]} onPress={() => setScreen('dashboard')}>
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+  
   // --- EMERGENCY RENDER GUARD ---
   // If we are on the signup screen, we show it NO MATTER WHAT.
   if (screen === 'signup') {
