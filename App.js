@@ -65,6 +65,7 @@ if (Platform.OS === 'web') {
 const db = getFirestore(app);
 
 export default function App() {
+  const [staffList, setStaffList] = useState([]);
   const [screen, setScreen] = useState('loading'); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -251,6 +252,39 @@ const handleSignup = async () => {
     }
   };
 
+  const fetchStaffDirectory = async () => {
+    try {
+      // 1. Fallback check: try companyId first, if undefined use company
+      const companyMatchField = companyName || "Unam";
+
+      console.log("Attempting to fetch staff for company:", companyMatchField);
+
+      // We query the 'users' collection matching your group's schema
+      const staffQuery = query(
+        collection(db, "users"), 
+        where("company", "==", companyMatchField) 
+        // Note: If your database uses companyId, change "company" to "companyId" above!
+      );
+      
+      const querySnapshot = await getDocs(staffQuery);
+      const members = [];
+      
+      querySnapshot.forEach((doc) => {
+        members.push({ id: doc.id, ...doc.data() });
+      });
+      
+      console.log("Staff fetched successfully:", members);
+      setStaffList(members);
+      setScreen('staff_directory');
+    } catch (error) {
+      // This prints the EXACT reason for the failure in your F12 console inspect tool
+      console.error("Detailed Firestore Directory Error:", error.code, error.message);
+      
+      const msg = `Failed to load staff directory: ${error.message}`;
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+    }
+  };
+
   // --- SCREEN RENDERING ---
   if (!isReady || screen === 'loading') {
     return (
@@ -323,6 +357,12 @@ const handleSignup = async () => {
         <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
           <Text style={styles.buttonText}>View Profile</Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+  style={[styles.roleButton, { backgroundColor: '#2e4053' }]} 
+  onPress={fetchStaffDirectory}
+>
+  <Text style={styles.buttonText}>📋 View Active Staff Directory</Text>
+</TouchableOpacity>
         
         <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
@@ -361,6 +401,35 @@ const handleSignup = async () => {
           <Text style={styles.buttonText}>Back to Dashboard</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
+
+  if (screen === 'staff_directory') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.title}>Staff Directory</Text>
+        <Text style={styles.subtitle}>Managing Laboratory Personnel</Text>
+
+        <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }}>
+          {staffList.length === 0 ? (
+            <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No staff members found.</Text>
+          ) : (
+            staffList.map((member) => (
+              <View key={member.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15 }]}>
+                <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{member.fullName}</Text>
+                <Text style={{ color: '#3498db', fontSize: 14, fontWeight: '600', marginTop: 2 }}>
+                  💼 Role: {member.role}
+                </Text>
+                <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>✉️ Email: {member.email}</Text>
+              </View>
+            ))
+          )}
+        </ScrollView>
+
+        <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
+          <Text style={styles.buttonText}>Back to Dashboard</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
     );
   }
 
