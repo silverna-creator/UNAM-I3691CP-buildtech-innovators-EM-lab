@@ -119,6 +119,7 @@ export default function App() {
 
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
+    const normalizedCompany = companyName ? companyName.toUpperCase().trim() : '';
     if (!email || !password) {
       const msg = 'Please enter email and password';
       Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
@@ -144,7 +145,7 @@ export default function App() {
   };
 
 const handleSignup = async () => {
-    // 1. Save a reference to the currently logged-in Admin token
+    const normalizedCompany = companyName ? companyName.toUpperCase().trim() : '';
     const adminUser = auth.currentUser; 
     const assignedRole = adminUser ? role : 'Admin'; 
 
