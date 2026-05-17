@@ -142,9 +142,10 @@ export default function App() {
     setScreen('login');
   };
 
- const handleSignup = async () => {
-    const assignedRole = auth.currentUser ? role : 'Admin'; 
-    const adminUser = auth.currentUser; // Keep a reference to you (the logged-in Admin)
+const handleSignup = async () => {
+    // 1. Save a reference to the currently logged-in Admin token
+    const adminUser = auth.currentUser; 
+    const assignedRole = adminUser ? role : 'Admin'; 
 
     if (!email || !password || !fullName || !assignedRole || !companyName) {
       const msg = 'Please fill in all fields';
@@ -155,26 +156,22 @@ export default function App() {
     try {
       let newUserUid;
 
-      // --- CASE 1: ADMIN IS REGISTERING STAFF (PATH B BACKGROUND BYPASS) ---
+      // --- CASE 1: ADMIN REGISTERS STAFF (SILENT BYPASS) ---
       if (adminUser) {
-        // Create a completely separate, temporary app instance in memory
-        const secondaryAppName = `SecondaryApp_${Date.now()}`;
+        // We create the secondary instance with a randomized name to completely hide it from the main thread
+        const secondaryAppName = `SilentApp_${Math.random().toString(36).substring(7)}`;
         const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
         const secondaryAuth = getAuth(secondaryApp);
 
-        // Create the staff user using the background auth instance
+        // This happens completely in the background
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
         newUserUid = userCredential.user.uid;
 
-        // Immediately sign out and destroy the secondary auth instance so it doesn't leak memory
+        // Force-signout the background user immediately so it doesn't touch your main session
         await secondaryAuth.signOut();
-        
-        // Note: We don't need to explicitly "delete" the app instance in newer Firebase JS SDK versions, 
-        // but signing out of its auth prevents it from hijacking the global state.
       } 
-      // --- CASE 2: ROOT MANAGER SIGNING UP FOR THE FIRST TIME ---
+      // --- CASE 2: NEW MANAGER SETUP ---
       else {
-        // Check for duplicate company name first
         const companyQuery = query(collection(db, "users"), where("company", "==", companyName));
         const querySnapshot = await getDocs(companyQuery);
         if (!querySnapshot.empty) {
@@ -187,7 +184,7 @@ export default function App() {
         newUserUid = userCredential.user.uid;
       }
 
-      // --- COMMON WRITE: SAVE TO FIRESTORE (Using your primary 'db' instance) ---
+      // --- DATABASE WRITE ---
       await setDoc(doc(db, "users", newUserUid), {
         fullName: fullName,
         company: companyName,
@@ -196,31 +193,34 @@ export default function App() {
         createdAt: new Date()
       });
 
-      // --- ROUTING & CONFIRMATION ---
+      // --- SCREEN ROUTING LOCK ---
       if (adminUser) {
-        // You stay logged in! Just alert success and clear the staff input fields
-        const msg = `Staff member ${fullName} successfully registered!`;
-        Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
+        // FORCE THE APP TO STAY ON THE DASHBOARD
+        setUser(adminUser); // Forcefully re-verify your main state
+        setScreen('dashboard'); 
         
+        const msg = `Staff member ${fullName} successfully registered! You can now send them their credentials.`;
+        if (Platform.OS === 'web') alert(msg);
+        else Alert.alert('Success', msg);
+
+        // Reset ONLY the registration input boxes so you can register another one
         setFullName('');
         setEmail('');
         setPassword('');
         setRole('');
-        setScreen('dashboard'); // Keeps you on the dashboard
       } else {
-        // New manager goes back to login
         const msg = 'Company account created successfully! Please log in.';
         Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
         setScreen('login');
       }
 
     } catch (error) {
-      console.error("Signup Error details:", error.code, error.message);
+      console.error("Signup Error:", error.message);
       const errorMsg = `Signup Error: ${error.message}`;
       Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Signup Error', errorMsg);
     }
   };
-  
+
   const handleForgotPassword = () => {
     if (!email) {
       const msg = "Please enter your email address first.";
@@ -262,11 +262,16 @@ export default function App() {
   }
 
   if (screen === 'dashboard') {
+    // Normalizing the role string to make comparisons foolproof
+    const userRole = role ? role.toLowerCase().trim() : '';
+
     return (
       <View style={styles.container}>
         <Text style={styles.title}>EM-Lab</Text>
         <Text style={styles.subtitle}>{companyName} - {role}</Text>
-        {role.toLowerCase() === 'admin' && (
+        
+        {/* --- 1. ADMIN / LAB MANAGER PORTAL --- */}
+        {userRole === 'admin' && (
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Admin Dashboard</Text>
             <TouchableOpacity style={styles.roleButton} onPress={() => {
@@ -277,15 +282,48 @@ export default function App() {
             </TouchableOpacity>
           </View>
         )}
-        {role.toLowerCase() === 'lab technician' && (
+
+        {/* --- 2. LAB TECHNICIAN PORTAL --- */}
+        {userRole === 'lab technician' && (
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Technician Portal</Text>
-            <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>Log Test Results</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.roleButton}>
+              <Text style={styles.buttonText}>Log Test Results</Text>
+            </TouchableOpacity>
           </View>
         )}
+
+        {/* --- 3. METALLURGIST PORTAL --- */}
+        {userRole === 'metallurgist' && (
+          <View style={styles.roleBox}>
+            <Text style={styles.roleTitle}>Metallurgist Portal</Text>
+            <TouchableOpacity style={styles.roleButton}>
+              <Text style={styles.buttonText}>Analyze Sample Data</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.roleButton}>
+              <Text style={styles.buttonText}>Generate Quality Reports</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* --- 4. FURNACE OPERATOR PORTAL --- */}
+        {userRole === 'furnace operator' && (
+          <View style={styles.roleBox}>
+            <Text style={styles.roleTitle}>Furnace Operations</Text>
+            <TouchableOpacity style={styles.roleButton}>
+              <Text style={styles.buttonText}>Log Melt Cycle Data</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.roleButton}>
+              <Text style={styles.buttonText}>Monitor Furnace Status</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* --- GLOBAL ACCOUNT BUTTONS --- */}
         <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
           <Text style={styles.buttonText}>View Profile</Text>
         </TouchableOpacity>
+        
         <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
