@@ -406,33 +406,36 @@ const handleSignup = async () => {
 
   if (screen === 'staff_directory') {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Staff Directory</Text>
-        <Text style={styles.subtitle}>Managing Laboratory Personnel</Text>
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Staff Directory</Text>
+            <Text style={styles.subtitle}>Managing Laboratory Personnel</Text>
 
-        <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }}>
-          {staffList.length === 0 ? (
-            <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No staff members found.</Text>
-          ) : (
-            staffList.map((member) => (
-              <View key={member.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15 }]}>
-                <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{member.fullName}</Text>
-                <Text style={{ color: '#3498db', fontSize: 14, fontWeight: '600', marginTop: 2 }}>
-                  💼 Role: {member.role}
-                </Text>
-                <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>✉️ Email: {member.email}</Text>
-              </View>
-            ))
-          )}
-        </ScrollView>
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              {staffList.length === 0 ? (
+                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No staff members found.</Text>
+              ) : (
+                staffList.map((member) => (
+                  <View key={member.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15 }]}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{member.fullName}</Text>
+                    <Text style={{ color: '#3498db', fontSize: 14, fontWeight: '600', marginTop: 2 }}>
+                      💼 Role: {member.role}
+                    </Text>
+                    <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>✉️ Email: {member.email}</Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
 
-        <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
-          <Text style={styles.buttonText}>Back to Dashboard</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
+              <Text style={styles.buttonText}>Back to Dashboard</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
     );
   }
-
   // --- EMERGENCY RENDER GUARD ---
   // If we are on the signup screen, we show it NO MATTER WHAT.
   if (screen === 'signup') {
