@@ -142,28 +142,53 @@ export default function App() {
     setScreen('login');
   };
 
-  const handleSignup = async () => {
+ const handleSignup = async () => {
     const assignedRole = auth.currentUser ? role : 'Admin'; 
+    const adminUser = auth.currentUser; // Keep a reference to you (the logged-in Admin)
 
     if (!email || !password || !fullName || !assignedRole || !companyName) {
-      Alert.alert('Error', 'Please fill in all fields');
+      const msg = 'Please fill in all fields';
+      Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
       return;
     }
 
     try {
-      if (!auth.currentUser && assignedRole === 'Admin') {
+      let newUserUid;
+
+      // --- CASE 1: ADMIN IS REGISTERING STAFF (PATH B BACKGROUND BYPASS) ---
+      if (adminUser) {
+        // Create a completely separate, temporary app instance in memory
+        const secondaryAppName = `SecondaryApp_${Date.now()}`;
+        const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+        const secondaryAuth = getAuth(secondaryApp);
+
+        // Create the staff user using the background auth instance
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+        newUserUid = userCredential.user.uid;
+
+        // Immediately sign out and destroy the secondary auth instance so it doesn't leak memory
+        await secondaryAuth.signOut();
+        
+        // Note: We don't need to explicitly "delete" the app instance in newer Firebase JS SDK versions, 
+        // but signing out of its auth prevents it from hijacking the global state.
+      } 
+      // --- CASE 2: ROOT MANAGER SIGNING UP FOR THE FIRST TIME ---
+      else {
+        // Check for duplicate company name first
         const companyQuery = query(collection(db, "users"), where("company", "==", companyName));
         const querySnapshot = await getDocs(companyQuery);
         if (!querySnapshot.empty) {
-          Alert.alert("Name Taken", "This Company Name is already registered.");
+          const msg = "This Company Name is already registered.";
+          Platform.OS === 'web' ? alert(msg) : Alert.alert("Name Taken", msg);
           return;
         }
+
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        newUserUid = userCredential.user.uid;
       }
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const newUser = userCredential.user;
-
-      await setDoc(doc(db, "users", newUser.uid), {
+      // --- COMMON WRITE: SAVE TO FIRESTORE (Using your primary 'db' instance) ---
+      await setDoc(doc(db, "users", newUserUid), {
         fullName: fullName,
         company: companyName,
         role: assignedRole,
@@ -171,18 +196,31 @@ export default function App() {
         createdAt: new Date()
       });
 
-      if (auth.currentUser && auth.currentUser.uid !== newUser.uid) {
-        Alert.alert('Success', `Staff member ${fullName} registered!`);
-        setScreen('dashboard');
+      // --- ROUTING & CONFIRMATION ---
+      if (adminUser) {
+        // You stay logged in! Just alert success and clear the staff input fields
+        const msg = `Staff member ${fullName} successfully registered!`;
+        Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
+        
+        setFullName('');
+        setEmail('');
+        setPassword('');
+        setRole('');
+        setScreen('dashboard'); // Keeps you on the dashboard
       } else {
-        Alert.alert('Success', 'Account created! Please log in.');
+        // New manager goes back to login
+        const msg = 'Company account created successfully! Please log in.';
+        Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
         setScreen('login');
       }
+
     } catch (error) {
-      Alert.alert('Signup Error', error.message);
+      console.error("Signup Error details:", error.code, error.message);
+      const errorMsg = `Signup Error: ${error.message}`;
+      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Signup Error', errorMsg);
     }
   };
-
+  
   const handleForgotPassword = () => {
     if (!email) {
       const msg = "Please enter your email address first.";
