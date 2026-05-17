@@ -74,6 +74,11 @@ export default function App() {
   const [role, setRole] = useState('');
   const [user, setUser] = useState(null); // Added missing user state
   const [isAdmin, setIsAdmin] = useState(false); // Added missing isAdmin state
+
+  const [regName, setRegName] = useState('');
+const [regEmail, setRegEmail] = useState('');
+const [regPassword, setRegPassword] = useState('');
+const [regRole, setRegRole] = useState('');
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -145,11 +150,16 @@ export default function App() {
   };
 
 const handleSignup = async () => {
+    // 1. Keeps your excellent uppercase normalization logic intact
     const normalizedCompany = companyName ? companyName.toUpperCase().trim() : '';
     const adminUser = auth.currentUser; 
-    const assignedRole = adminUser ? role : 'Admin'; 
+    
+    // 🛑 LOGIC FIX: If an admin is logged in, use the form's specific registration role state (regRole); 
+    // otherwise, if it's a first-time signup, it's a root Admin account creation.
+    const assignedRole = adminUser ? regRole : 'Admin'; 
 
-    if (!email || !password || !fullName || !assignedRole || !companyName) {
+    // 🛑 LOGIC FIX: We change these fields to validate the NEW input form states instead of session variables
+    if (!regEmail || !regPassword || !regName || !assignedRole || !normalizedCompany) {
       const msg = 'Please fill in all fields';
       Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
       return;
@@ -160,21 +170,20 @@ const handleSignup = async () => {
 
       // --- CASE 1: ADMIN REGISTERS STAFF (SILENT BYPASS) ---
       if (adminUser) {
-        // We create the secondary instance with a randomized name to completely hide it from the main thread
         const secondaryAppName = `SilentApp_${Math.random().toString(36).substring(7)}`;
         const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
         const secondaryAuth = getAuth(secondaryApp);
 
-        // This happens completely in the background
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+        // 🛑 LOGIC FIX: Pass the fresh form input states to the background creation call
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, regEmail, regPassword);
         newUserUid = userCredential.user.uid;
 
-        // Force-signout the background user immediately so it doesn't touch your main session
         await secondaryAuth.signOut();
       } 
       // --- CASE 2: NEW MANAGER SETUP ---
       else {
-        const companyQuery = query(collection(db, "users"), where("company", "==", companyName));
+        // Keeps your normalized company check intact
+        const companyQuery = query(collection(db, "users"), where("company", "==", normalizedCompany));
         const querySnapshot = await getDocs(companyQuery);
         if (!querySnapshot.empty) {
           const msg = "This Company Name is already registered.";
@@ -182,34 +191,36 @@ const handleSignup = async () => {
           return;
         }
 
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        // 🛑 LOGIC FIX: Pass the fresh form input states for root setup
+        const userCredential = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
         newUserUid = userCredential.user.uid;
       }
 
       // --- DATABASE WRITE ---
+      // 🛑 LOGIC FIX: Map the database fields to save the form states instead of over-writing your active account details
       await setDoc(doc(db, "users", newUserUid), {
-        fullName: fullName,
-        company: companyName,
+        fullName: regName,
+        company: normalizedCompany,
         role: assignedRole,
-        email: email,
+        email: regEmail,
         createdAt: new Date()
       });
 
       // --- SCREEN ROUTING LOCK ---
       if (adminUser) {
-        // FORCE THE APP TO STAY ON THE DASHBOARD
-        setUser(adminUser); // Forcefully re-verify your main state
+        setUser(adminUser); 
         setScreen('dashboard'); 
         
-        const msg = `Staff member ${fullName} successfully registered! You can now send them their credentials.`;
+        // 🛑 LOGIC FIX: Alert names the newly registered staff member correctly
+        const msg = `Staff member ${regName} successfully registered! You can now send them their credentials.`;
         if (Platform.OS === 'web') alert(msg);
         else Alert.alert('Success', msg);
 
-        // Reset ONLY the registration input boxes so you can register another one
-        setFullName('');
-        setEmail('');
-        setPassword('');
-        setRole('');
+        // 🛑 LOGIC FIX: Clear ONLY the specific registration form boxes so your Admin session variables stay locked!
+        setRegName('');
+        setRegEmail('');
+        setRegPassword('');
+        setRegRole('');
       } else {
         const msg = 'Company account created successfully! Please log in.';
         Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
@@ -222,6 +233,8 @@ const handleSignup = async () => {
       Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Signup Error', errorMsg);
     }
   };
+     
+  
 
   const handleForgotPassword = () => {
     if (!email) {
@@ -450,7 +463,7 @@ const handleSignup = async () => {
                  <Text style={styles.title}>EM-Lab</Text>
                  <Text style={styles.subtitle}>{auth.currentUser ? "Staff Registration" : "Manager Registration"}</Text>
                  
-                 <TextInput style={styles.input} placeholder="Full Name" value={fullName} onChangeText={setFullName} placeholderTextColor="#888" />
+                 <TextInput style={styles.input} placeholder="Full Name" value={regName} onChangeText={setRegName} placeholderTextColor="#888" />
                  <TextInput style={styles.input} placeholder="Company Name" value={companyName} onChangeText={setCompanyName} placeholderTextColor="#888" />
                  {/* --- START OF ADAPTIVE ROLE SECTION --- */}
 {auth.currentUser ? (
@@ -458,8 +471,8 @@ const handleSignup = async () => {
   <TextInput 
     style={styles.input} 
     placeholder="Staff Role (e.g. Lab Technician)" 
-    value={role} 
-    onChangeText={setRole} 
+    value={regRole} 
+    onChangeText={setRegRole} 
     placeholderTextColor="#888" 
   />
 ) : (
@@ -487,8 +500,8 @@ const handleSignup = async () => {
   </View>
 )}
 {/* --- END OF ADAPTIVE ROLE SECTION --- */}
-                 <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" placeholderTextColor="#888" />
-                 <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#888" />
+                 <TextInput style={styles.input} placeholder="Email" value={regEmail} onChangeText={setRegEmail} autoCapitalize="none" placeholderTextColor="#888" />
+                 <TextInput style={styles.input} placeholder="Password" value={regPassword} onChangeText={setRegPassword} secureTextEntry placeholderTextColor="#888" />
 
                  <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
                    <Text style={styles.loginButtonText}>Register</Text>
