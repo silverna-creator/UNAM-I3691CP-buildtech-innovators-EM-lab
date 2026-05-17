@@ -314,6 +314,12 @@ const handleSignup = async () => {
               }}>
               <Text style={styles.buttonText}>Register New Staff</Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
+              onPress={fetchStaffDirectory}
+            >
+              <Text style={styles.buttonText}>📋 View Active Staff Directory</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -357,13 +363,7 @@ const handleSignup = async () => {
         <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
           <Text style={styles.buttonText}>View Profile</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-  style={[styles.roleButton, { backgroundColor: '#2e4053' }]} 
-  onPress={fetchStaffDirectory}
->
-  <Text style={styles.buttonText}>📋 View Active Staff Directory</Text>
-</TouchableOpacity>
-        
+ 
         <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
