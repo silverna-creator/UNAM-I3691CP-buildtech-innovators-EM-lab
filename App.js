@@ -245,31 +245,35 @@ export default function App() {
     }
   };
 
- const fetchStaffDirectory = async () => {
-    // If the logged-in Admin's company state is missing or empty, do not run the query
+const fetchStaffDirectory = async () => {
+    // 1. Safety Gate: If the Admin's company name is empty, alert and stop.
     if (!companyName) {
-      const msg = "Error: Admin company profile not fully loaded yet. Please try again in a moment.";
+      const msg = "Error: Admin company profile not fully loaded yet. Please try again.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
     }
 
     try {
-      console.log("Dynamically fetching staff strictly for company:", companyName);
+      // 2. Terminal Debugging Checks (Completely dynamic!)
+      console.log("==================== DEBUG TERMINAL ====================");
+      console.log("LOGGED-IN ADMIN COMPANY NAME STATE:", `'${companyName}'`);
+      console.log("========================================================");
 
-      // Query the users collection filtering exclusively by the logged-in Admin's company
+      // 3. Query using the live, dynamic companyName state directly
       const staffQuery = query(
         collection(db, "users"), 
-        where("company", "==", companyName) 
+        where("company", "==", companyName)
       );
       
       const querySnapshot = await getDocs(staffQuery);
       const members = [];
       
       querySnapshot.forEach((doc) => {
+        console.log("FOUND USER MATCH IN DATABASE:", doc.id, doc.data());
         members.push({ id: doc.id, ...doc.data() });
       });
       
-      console.log(`Successfully fetched ${members.length} staff members for ${companyName}:`, members);
+      console.log(`Total staff records retrieved for ${companyName}: ${members.length}`);
       setStaffList(members);
       setScreen('staff_directory');
     } catch (error) {
