@@ -87,7 +87,12 @@ export default function App() {
   const [maxFurnaceTemp, setMaxFurnaceTemp] = useState('1200'); 
   const [isLabActive, setIsLabActive] = useState(true);
 
-  // --- SINGLE AUTH EFFECT ---
+  // --- LAB TECHNICIAN STATES ---
+  const [samplesList, setSamplesList] = useState([]);
+  const [sampleId, setSampleId] = useState('');
+  const [oreType, setOreType] = useState('Copper'); // Default selection
+  const [initialWeight, setInitialWeight] = useState('');
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
       if (authenticatedUser) {
@@ -99,15 +104,49 @@ export default function App() {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setFullName(userData.fullName || "");
-            setRole(userData.role || "");
-            setCompanyName(userData.company || "UNAM");
+            
+            // Normalize the role string right at entry to prevent case mismatches
+            const userRole = userData.role ? userData.role.toLowerCase().trim() : "";
+            setRole(userRole);
+            
+            // Normalize company name to ensure uniform dynamic queries
+            const userCompany = userData.company ? userData.company.trim() : "UNAM";
+            setCompanyName(userCompany);
+            
             setEmail(userData.email || authenticatedUser.email);
-            setScreen('dashboard');
+
+            // 🚦 The Smart Router Gateway
+            if (userRole === 'admin') {
+              setScreen('dashboard'); 
+            } else if (userRole === 'lab technician') {
+              // Automatically fetch their specific company samples before drawing the screen
+              console.log(`Routing ${userData.fullName} to Lab Technician Portal...`);
+              
+              // We manually pass userCompany here because state updates take a microsecond to settle
+              const samplesQuery = query(
+                collection(db, "samples"),
+                where("company", "==", userCompany)
+              );
+              const querySnapshot = await getDocs(samplesQuery);
+              const samples = [];
+              querySnapshot.forEach((doc) => {
+                samples.push({ id: doc.id, ...doc.data() });
+              });
+              samples.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+              setSamplesList(samples);
+              
+              setScreen('lab_technician_dashboard'); 
+            } else if (userRole === 'furnace operator') {
+              setScreen('furnace_operator_dashboard'); 
+            } else {
+              // Fallback screen if role doesn't match standard profiles
+              setScreen('login');
+            }
           } else {
             setScreen('login');
           }
         } catch (error) {
-          console.error("Database fetch error:", error);
+          console.error("Database fetch error during authentication routing:", error);
           setScreen('login');
         }
       } else {
@@ -117,7 +156,8 @@ export default function App() {
       }
     });
     return unsubscribe;
-  }, []); 
+  }, []);
+
 
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
@@ -130,8 +170,26 @@ export default function App() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      const msg = 'Login Error: Invalid email or password';
-      Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
+      // 🚪 EXTRA DIAGNOSTICS FOR BEHIND CLOSED DOORS:
+      console.log("==================== LOGIN BREAKDOWN ====================");
+      console.log("FIREBASE ERROR CODE:", `'${error.code}'`);
+      console.log("FIREBASE ERROR MESSAGE:", error.message);
+      console.log("=========================================================");
+
+      let friendlyMessage = "Login failed. Please check your network connection.";
+      
+      // Map out the exact security failures
+      if (error.code === 'auth/user-not-found') {
+        friendlyMessage = "This email is not registered in Firebase Authentication.";
+      } else if (error.code === 'auth/wrong-password') {
+        friendlyMessage = "Incorrect password. Please try again.";
+      } else if (error.code === 'auth/invalid-email') {
+        friendlyMessage = "The email address format is invalid.";
+      } else if (error.code === 'auth/network-request-failed') {
+        friendlyMessage = "Network error. Check your local internet connection.";
+      }
+
+      Platform.OS === 'web' ? alert(friendlyMessage) : Alert.alert("Login Error", friendlyMessage);
     }
   };
 
@@ -280,6 +338,78 @@ const fetchStaffDirectory = async () => {
       console.error("Detailed Firestore Directory Error:", error.code, error.message);
       const msg = `Failed to load staff directory: ${error.message}`;
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+    }
+  };
+
+  const logMineralSample = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    // Validation Check
+    if (!sampleId.trim() || !initialWeight.trim()) {
+      const msg = "Please fill in all sample details.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+
+    try {
+      console.log("Logging mineral sample for company:", companyName);
+
+      // Create a reference to a new document inside a global "samples" collection
+      const sampleData = {
+        sampleId: sampleId.trim().toUpperCase(),
+        oreType: oreType,
+        initialWeight: parseFloat(initialWeight),
+        company: companyName, // Multi-tenant link
+        loggedBy: fullName,    // Track which technician did the work
+        createdAt: new Date().toISOString(),
+        status: "Pending Analysis" // Initial state for the pipeline
+      };
+
+      // Add to Firestore
+      const docRef = await addDoc(collection(db, "samples"), sampleData);
+      console.log("Sample stored successfully with ID:", docRef.id);
+
+      const successMsg = `Sample ${sampleId} logged successfully!`;
+      Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
+
+      // Clear the input fields completely
+      setSampleId('');
+      setInitialWeight('');
+      
+      // Refresh the local list automatically so it appears immediately
+      fetchMineralSamples();
+    } catch (error) {
+      console.error("Error logging mineral sample:", error);
+      const errorMsg = `Failed to log sample: ${error.message}`;
+      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert("Error", errorMsg);
+    }
+  };
+
+  const fetchMineralSamples = async () => {
+    if (!companyName) return;
+
+    try {
+      console.log("Fetching mineral samples for company:", companyName);
+      
+      const samplesQuery = query(
+        collection(db, "samples"),
+        where("company", "==", companyName)
+      );
+
+      const querySnapshot = await getDocs(samplesQuery);
+      const samples = [];
+
+      querySnapshot.forEach((doc) => {
+        samples.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Sort by newest arrival first
+      samples.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      setSamplesList(samples);
+      setScreen('lab_technician_dashboard'); // Ensure they stay/go to the portal view
+    } catch (error) {
+      console.error("Error fetching mineral samples:", error);
     }
   };
   
