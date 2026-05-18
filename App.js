@@ -119,27 +119,16 @@ export default function App() {
             if (userRole === 'admin') {
               setScreen('dashboard'); 
             } else if (userRole === 'lab technician') {
-              // Automatically fetch their specific company samples before drawing the screen
-              console.log(`Routing ${userData.fullName} to Lab Technician Portal...`);
+              console.log(`Routing ${userData.fullName} to Lab Technician Portal smoothly...`);
               
-              // We manually pass userCompany here because state updates take a microsecond to settle
-              const samplesQuery = query(
-                collection(db, "samples"),
-                where("company", "==", userCompany)
-              );
-              const querySnapshot = await getDocs(samplesQuery);
-              const samples = [];
-              querySnapshot.forEach((doc) => {
-                samples.push({ id: doc.id, ...doc.data() });
-              });
-              samples.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-              setSamplesList(samples);
-              
+              // 🚀 FIX: Switch screens immediately so the UI doesn't freeze!
               setScreen('lab_technician_dashboard'); 
+              
+              // Run the fetch in the background without blocking the UI thread
+              fetchMineralSamples();
             } else if (userRole === 'furnace operator') {
               setScreen('furnace_operator_dashboard'); 
             } else {
-              // Fallback screen if role doesn't match standard profiles
               setScreen('login');
             }
           } else {
@@ -613,6 +602,93 @@ const fetchStaffDirectory = async () => {
             </TouchableOpacity>
             <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
               <Text style={styles.buttonText}>Logout</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        )}
+
+        {/* --- 🔬 LAB TECHNICIAN DEDICATED DASHBOARD PORTAL --- */}
+        {screen === 'lab_technician_dashboard' && (
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Lab Portal</Text>
+            <Text style={styles.subtitle}>{companyName} | Operator: {fullName}</Text>
+
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              
+              {/* SECTION 1: REGISTRATION COMPONENT */}
+              <View style={[styles.roleBox, { marginTop: 5, padding: 20 }]}>
+                <Text style={[styles.roleTitle, { color: '#27ae60', marginBottom: 15 }]}>🧪 Log New Mineral Sample</Text>
+                
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="Sample ID (e.g., BATCH-001)" 
+                  value={sampleId} 
+                  onChangeText={setSampleId} 
+                  placeholderTextColor="#888" 
+                />
+                
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="Initial Weight (kg)" 
+                  value={initialWeight} 
+                  onChangeText={setInitialWeight} 
+                  keyboardType="numeric" 
+                  placeholderTextColor="#888" 
+                />
+
+                <Text style={{ color: '#c8d4e6', marginBottom: 10, fontSize: 13, fontWeight: '600' }}>Select Ore Classification:</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
+                  {['Copper', 'Gold', 'Zinc', 'Uranium'].map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => setOreType(type)}
+                      style={{
+                        backgroundColor: oreType === type ? '#3498db' : '#232931',
+                        paddingVertical: 6,
+                        paddingHorizontal: 10,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: oreType === type ? '#3498db' : '#333'
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>{type}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#27ae60' }]} onPress={logMineralSample}>
+                  <Text style={styles.buttonText}>Commit Sample to Datastore</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* SECTION 2: LIVE DATA COLLECTION RETRIEVAL CARD MAPS */}
+              <View style={{ marginTop: 15 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Logged Material Batches</Text>
+                  <TouchableOpacity onPress={fetchMineralSamples} style={{ backgroundColor: '#232931', padding: 6, borderRadius: 6 }}>
+                    <Text style={{ color: '#3498db', fontSize: 11, fontWeight: 'bold' }}>🔄 Refresh</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {samplesList.length === 0 ? (
+                  <Text style={{ color: '#888', fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>No records found for company pool.</Text>
+                ) : (
+                  samplesList.map((item) => (
+                    <View key={item.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15, borderLeftWidth: 4, borderLeftColor: '#f1c40f' }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{item.sampleId}</Text>
+                        <Text style={{ color: '#f1c40f', fontSize: 12, fontWeight: 'bold' }}>{item.status}</Text>
+                      </View>
+                      <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>Mineral: {item.oreType} | Weight: {item.initialWeight} kg</Text>
+                      <Text style={{ color: '#555', fontSize: 11, marginTop: 6 }}>Logged by: {item.loggedBy}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+
+            </ScrollView>
+
+            <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#c0392b', width: '100%' }]} onPress={handleLogout}>
+              <Text style={styles.buttonText}>Secure System Logout</Text>
             </TouchableOpacity>
           </SafeAreaView>
         )}
