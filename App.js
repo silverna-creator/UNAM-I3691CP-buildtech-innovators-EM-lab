@@ -93,6 +93,12 @@ export default function App() {
   const [oreType, setOreType] = useState('Copper'); // Default selection
   const [initialWeight, setInitialWeight] = useState('');
 
+  // Furnace Operator Form States
+  const [meltId, setMeltId] = useState('');
+  const [furnaceTemp, setFurnaceTemp] = useState('');
+  const [cycleDuration, setCycleDuration] = useState('');
+  const [furnaceLogs, setFurnaceLogs] = useState([]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
       if (authenticatedUser) {
@@ -401,6 +407,65 @@ const fetchStaffDirectory = async () => {
       console.error("Error fetching mineral samples:", error);
     }
   };
+
+  // 1. Commit Melt Cycle to Firestore
+  const logMeltCycle = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (!meltId.trim() || !furnaceTemp.trim() || !cycleDuration.trim()) {
+      const msg = "Please fill in all melt cycle details.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+
+    try {
+      const meltData = {
+        meltId: meltId.trim().toUpperCase(),
+        temperature: parseFloat(furnaceTemp),
+        durationMinutes: parseInt(cycleDuration),
+        companyId: companyName, // Binds it to this specific company environment
+        loggedBy: fullName,
+        createdAt: new Date().toISOString(),
+      };
+
+      await addDoc(collection(db, "furnace_operations"), meltData);
+      
+      const successMsg = `Melt Cycle ${meltId.toUpperCase()} logged successfully!`;
+      Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
+      
+      setMeltId('');
+      setFurnaceTemp('');
+      setCycleDuration('');
+      fetchFurnaceOperations(); // Refresh the list automatically
+    } catch (error) {
+      console.error("Error logging melt cycle:", error);
+    }
+  };
+
+  // 2. Fetch Historical Melt Runs
+  const fetchFurnaceOperations = async () => {
+    if (!companyName) return;
+
+    try {
+      const furnaceQuery = query(
+        collection(db, "furnace_operations"),
+        where("companyId", "==", companyName)
+      );
+
+      const querySnapshot = await getDocs(furnaceQuery);
+      const logs = [];
+      querySnapshot.forEach((doc) => {
+        logs.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Sort with newest runs at the top
+      logs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setFurnaceLogs(logs);
+      setScreen('furnace_directory'); // Route directly to the uniform history view
+    } catch (error) {
+      console.error("Error retrieving furnace operations:", error);
+    }
+  };
   
   // --- NAVIGATION SCREEN ROUTING TERMINALS ---
   if (!isReady || screen === 'loading') {
@@ -626,6 +691,91 @@ const fetchStaffDirectory = async () => {
     );
   }
 
+  if (screen === 'log_melt_cycle') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+                <Text style={styles.title}>EM-Lab</Text>
+                <Text style={styles.subtitle}>Log Melt Cycle Data</Text>
+
+                <TextInput style={styles.input} placeholder="Melt ID / Batch Number" value={meltId} onChangeText={setMeltId} placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Current Temperature (°C)" value={furnaceTemp} onChangeText={setFurnaceTemp} keyboardType="numeric" placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Cycle Duration (Minutes)" value={cycleDuration} onChangeText={setCycleDuration} keyboardType="numeric" placeholderTextColor="#888" />
+
+                <TouchableOpacity style={styles.loginButton} onPress={logMeltCycle}>
+                  <Text style={styles.loginButtonText}>Commit Melt Run</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setScreen('furnace_operator_dashboard')}>
+                  <Text style={styles.switchText}>Back to Dashboard</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (screen === 'furnace_directory') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Furnace Logs</Text>
+            <Text style={styles.subtitle}>Historical Thermal Melt Run Registry</Text>
+
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              {furnaceLogs.length === 0 ? (
+                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No furnace cycles registered yet.</Text>
+              ) : (
+                furnaceLogs.map((item) => {
+                  // Alert logic: check if the run exceeded our safety threshold (e.g., 1200°C or dynamic maxFurnaceTemp)
+                  const isOverheated = item.temperature > parseFloat(maxFurnaceTemp || 1200);
+                  
+                  return (
+                    <View 
+                      key={item.id} 
+                      style={[
+                        styles.roleBox, 
+                        { 
+                          marginTop: 0, 
+                          marginBottom: 10, 
+                          padding: 15,
+                          borderLeftWidth: 4,
+                          borderLeftColor: isOverheated ? '#c0392b' : '#27ae60' 
+                        }
+                      ]}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{item.meltId}</Text>
+                        <Text style={{ color: isOverheated ? '#c0392b' : '#27ae60', fontSize: 13, fontWeight: 'bold' }}>
+                          {isOverheated ? "⚠️ OVERHEAT" : "✅ NORMAL"}
+                        </Text>
+                      </View>
+                      
+                      <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
+                        🌡️ Temp: {item.temperature}°C | ⏱️ Duration: {item.durationMinutes} mins
+                      </Text>
+                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 4 }}>Executed By: {item.loggedBy}</Text>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('furnace_operator_dashboard')}>
+              <Text style={styles.buttonText}>Back to Dashboard</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+  
   // --- MAIN LAYOUT GATE (DASHBOARD, PROFILE, LOGIN) ---
   const userRole = role ? role.toLowerCase().trim() : '';
 
@@ -703,6 +853,34 @@ const fetchStaffDirectory = async () => {
               
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchMineralSamples}>
                 <Text style={styles.buttonText}>📋 View Logged Samples</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Standard Uniform Bottom Buttons */}
+            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
+              <Text style={styles.buttonText}>View Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
+              <Text style={styles.buttonText}>Logout</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        )}
+
+        {/* --- 🔥 FURNACE OPERATOR MATCHING DASHBOARD PORTAL --- */}
+        {screen === 'furnace_operator_dashboard' && (
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>EM-Lab</Text>
+            <Text style={styles.subtitle}>{companyName} - {role.toUpperCase()}</Text>
+
+            <View style={styles.roleBox}>
+              <Text style={styles.roleTitle}>Furnace Operations</Text>
+              
+              <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_melt_cycle')}>
+                <Text style={styles.buttonText}>🌋 Log Melt Cycle Data</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchFurnaceOperations}>
+                <Text style={styles.buttonText}>📊 Monitor Furnace Status</Text>
               </TouchableOpacity>
             </View>
 
