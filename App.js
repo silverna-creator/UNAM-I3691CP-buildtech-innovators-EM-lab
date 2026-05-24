@@ -99,6 +99,11 @@ export default function App() {
   const [cycleDuration, setCycleDuration] = useState('');
   const [furnaceLogs, setFurnaceLogs] = useState([]);
 
+  // Metallurgist State Hooks
+  const [pendingSamples, setPendingSamples] = useState([]);
+  const [selectedSample, setSelectedSample] = useState(null);
+  const [gradePurity, setGradePurity] = useState('');
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
       if (authenticatedUser) {
@@ -190,6 +195,8 @@ export default function App() {
           setScreen('lab_technician_dashboard');
         } else if (cleanRole === 'furnace operator') {
           setScreen('furnace_operator_dashboard');
+        } else if (cleanRole === 'metallurgist') {
+          setScreen('metallurgist_dashboard'); // 🔬 Add this line!
         } else {
           // If role is corrupted or unexpected
           const unknownMsg = `Profile role mismatch: "${userData.role}". Contact your system admin.`;
@@ -925,6 +932,34 @@ const fetchStaffDirectory = async () => {
             </View>
 
             {/* Standard Uniform Bottom Buttons */}
+            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
+              <Text style={styles.buttonText}>View Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
+              <Text style={styles.buttonText}>Logout</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        )}
+
+        {/* --- 🔬 METALLURGIST PORTAL DASHBOARD --- */}
+        {screen === 'metallurgist_dashboard' && (
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>EM-Lab</Text>
+            <Text style={styles.subtitle}>{companyName} - {role.toUpperCase()}</Text>
+
+            <View style={styles.roleBox}>
+              <Text style={styles.roleTitle}>Quality Assurance & Analysis</Text>
+              
+              <TouchableOpacity style={styles.roleButton} onPress={fetchSamplesForAnalysis}>
+                <Text style={styles.buttonText}>🧪 Analyze Pending Samples</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchAnalysisHistory}>
+                <Text style={styles.buttonText}>📜 View Assay History</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Standard Uniform Bottom Navigation */}
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
               <Text style={styles.buttonText}>View Profile</Text>
             </TouchableOpacity>
