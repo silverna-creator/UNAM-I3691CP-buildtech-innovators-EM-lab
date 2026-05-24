@@ -945,20 +945,20 @@ const fetchStaffDirectory = async () => {
           </SafeAreaView>
         )}
 
-        {/* --- 🔬 METALLURGIST PORTAL DASHBOARD --- */}
+        {/* --- 🔬 5. METALLURGIST PORTAL DASHBOARD --- */}
         {screen === 'metallurgist_dashboard' && (
           <SafeAreaView style={styles.container}>
             <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>{companyName} - {role.toUpperCase()}</Text>
+            <Text style={styles.subtitle}>{companyName} - {role ? role.toUpperCase() : ''}</Text>
 
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Quality Assurance & Analysis</Text>
               
-              <TouchableOpacity style={styles.roleButton} onPress={fetchSamplesForAnalysis}>
+              <TouchableOpacity style={styles.roleButton} onPress={() => alert("Assay analysis queue coming up next!")}>
                 <Text style={styles.buttonText}>🧪 Analyze Pending Samples</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchAnalysisHistory}>
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => alert("Assay history tracker coming up next!")}>
                 <Text style={styles.buttonText}>📜 View Assay History</Text>
               </TouchableOpacity>
             </View>
@@ -967,6 +967,7 @@ const fetchStaffDirectory = async () => {
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
               <Text style={styles.buttonText}>View Profile</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
               <Text style={styles.buttonText}>Logout</Text>
             </TouchableOpacity>
