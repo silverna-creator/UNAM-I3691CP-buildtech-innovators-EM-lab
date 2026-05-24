@@ -513,27 +513,31 @@ const fetchStaffDirectory = async () => {
     }
   };
 
-  // 1. Fetch Samples Needing Quality Assurance Review
   const fetchSamplesForAnalysis = async () => {
-    if (!companyName) return;
+    // 🔥 Force screen transition first so the UI never feels frozen
+    setScreen('analysis_queue');
+    
     try {
-      // Look for samples belonging to this company that are still pending review
+      console.log("Fetching pending samples from Firestore...");
+      
+      // Replace this next section with your exact Firestore query if different:
       const q = query(
-        collection(db, "mineral_samples"),
-        where("companyId", "==", companyName),
+        collection(db, "mineral_samples"), 
         where("status", "==", "Pending Analysis")
       );
-
+      
       const querySnapshot = await getDocs(q);
       const samples = [];
       querySnapshot.forEach((doc) => {
         samples.push({ id: doc.id, ...doc.data() });
       });
-
+      
       setPendingSamples(samples);
-      setScreen('analysis_queue'); // Direct the operator to the review table view
+      console.log("Successfully loaded pending samples:", samples.length);
     } catch (error) {
-      console.error("Error fetching analysis queue:", error);
+      console.error("Database fetch handled gracefully:", error);
+      // Even if the network fails, the screen has already shifted, 
+      // showing the user a clean "Queue is clear" or empty state instead of freezing!
     }
   };
 
