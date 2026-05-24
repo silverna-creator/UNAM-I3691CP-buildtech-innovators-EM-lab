@@ -829,6 +829,11 @@ const fetchStaffDirectory = async () => {
   return (
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+
+        {/* 🚨 TEMPORARY DEBUG FLAG - REMOVE AFTER FIXING */}
+        <Text style={{ color: '#ffec3d', textAlign: 'center', marginTop: 40, fontSize: 12 }}>
+          DEBUG INFO: Screen is currently '{screen}' | Role is '{role}'
+        </Text>
         
         {/* --- DASHBOARD VIEW --- */}
         {screen === 'dashboard' && (
