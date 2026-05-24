@@ -156,32 +156,72 @@ export default function App() {
 
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
-    const normalizedCompany = companyName ? companyName.toUpperCase().trim() : '';
     if (!email || !password) {
       const msg = 'Please enter email and password';
       Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
       return;
     }
+    
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // 1. Sign in with Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // 2. Fetch the corresponding profile document from Firestore
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // 3. Set global user states
+        if (userData.fullName) setFullName(userData.fullName);
+        if (userData.company) setCompanyName(userData.company);
+        if (userData.role) setRole(userData.role);
+
+        // Normalize the role text for safe string checking
+        const cleanRole = userData.role ? userData.role.toLowerCase().trim() : '';
+        console.log("LOGGED IN USER PROFILE DETECTED:", userData);
+
+        // 4. ROUTING TERMINALS: Direct routing based on exact role strings
+        if (cleanRole === 'admin') {
+          setScreen('dashboard');
+        } else if (cleanRole === 'lab technician') {
+          setScreen('lab_technician_dashboard');
+        } else if (cleanRole === 'furnace operator') {
+          setScreen('furnace_operator_dashboard');
+        } else {
+          // If role is corrupted or unexpected
+          const unknownMsg = `Profile role mismatch: "${userData.role}". Contact your system admin.`;
+          Platform.OS === 'web' ? alert(unknownMsg) : Alert.alert("Profile Error", unknownMsg);
+          await auth.signOut();
+          setScreen('login');
+        }
+
+      } else {
+        // Document doesn't exist in the 'users' collection
+        const noDocMsg = "Account authenticated, but no profile record was found in database.";
+        Platform.OS === 'web' ? alert(noDocMsg) : Alert.alert("Database Error", noDocMsg);
+        await auth.signOut();
+        setScreen('login');
+      }
+
     } catch (error) {
-      // 🚪 EXTRA DIAGNOSTICS FOR BEHIND CLOSED DOORS:
+      // 🚪 DIAGNOSTICS FOR BEHIND CLOSED DOORS:
       console.log("==================== LOGIN BREAKDOWN ====================");
-      console.log("FIREBASE ERROR CODE:", `'${error.code}'`);
-      console.log("FIREBASE ERROR MESSAGE:", error.message);
+      console.log("ERROR CODE:", `'${error.code}'`);
+      console.log("ERROR MESSAGE:", error.message);
       console.log("=========================================================");
 
-      let friendlyMessage = "Login failed. Please check your network connection.";
+      // Show the true error message so it doesn't mask behind a generic network warning
+      let friendlyMessage = `Authentication failed: ${error.message}`;
       
-      // Map out the exact security failures
       if (error.code === 'auth/user-not-found') {
-        friendlyMessage = "This email is not registered in Firebase Authentication.";
+        friendlyMessage = "This email is not registered in our system.";
       } else if (error.code === 'auth/wrong-password') {
         friendlyMessage = "Incorrect password. Please try again.";
       } else if (error.code === 'auth/invalid-email') {
         friendlyMessage = "The email address format is invalid.";
-      } else if (error.code === 'auth/network-request-failed') {
-        friendlyMessage = "Network error. Check your local internet connection.";
       }
 
       Platform.OS === 'web' ? alert(friendlyMessage) : Alert.alert("Login Error", friendlyMessage);
