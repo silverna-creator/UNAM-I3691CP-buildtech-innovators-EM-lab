@@ -25,7 +25,7 @@ import {
   updatePassword
 } from "firebase/auth";
 
-import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- CONFIGURATION ---
@@ -38,6 +38,34 @@ const firebaseConfig = {
   messagingSenderId: "388695420434",
   appId: "1:388695420434:web:e0111e1b03221bc353b2cb",
   measurementId: "G-D0YZ74XX6G"
+};
+
+const submitAssayResults = async (sampleDocId) => {
+  if (!gradePurity.trim()) {
+    alert("Please enter a valid purity grade before sealing.");
+    return;
+  }
+
+  try {
+    const sampleRef = doc(db, "mineral_samples", sampleDocId);
+    
+    // Update the document to move it out of the queue and into history
+    await updateDoc(sampleRef, {
+      status: "Completed",
+      purityGrade: gradePurity,
+      certifiedBy: fullName, // Track which metallurgist signed off
+      certifiedAt: serverTimestamp() // Official timestamp
+    });
+
+    alert("Assay sealed and certified successfully!");
+    setGradePurity('');
+    setSelectedSample(null);
+    
+    // Refresh the queue so the sealed sample vanishes from the pending list
+    fetchSamplesForAnalysis(); 
+  } catch (error) {
+    console.error("Error sealing assay:", error);
+  }
 };
 
 // --- SAFE INITIALIZATION ---
@@ -103,6 +131,8 @@ export default function App() {
   const [pendingSamples, setPendingSamples] = useState([]);
   const [selectedSample, setSelectedSample] = useState(null);
   const [gradePurity, setGradePurity] = useState('');
+
+  const [assayHistory, setAssayHistory] = useState([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -570,6 +600,30 @@ const fetchStaffDirectory = async () => {
       console.error("Error committing assay update:", error);
     }
   };
+
+  const fetchAssayHistory = async () => {
+  // Flip the screen to the history view immediately so it feels snappy
+  setScreen('assay_history');
+
+  try {
+    console.log("Fetching certified assay records...");
+    const q = query(
+      collection(db, "mineral_samples"),
+      where("status", "==", "Completed")
+    );
+
+    const querySnapshot = await getDocs(q);
+    const historyLog = [];
+    querySnapshot.forEach((doc) => {
+      historyLog.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Sort by dynamic timestamp if available, or just set state
+    setAssayHistory(historyLog);
+  } catch (error) {
+    console.error("Error pulling historical logs:", error);
+  }
+};
   
   // --- NAVIGATION SCREEN ROUTING TERMINALS ---
   if (!isReady || screen === 'loading') {
@@ -954,10 +1008,24 @@ const fetchStaffDirectory = async () => {
             <Text style={styles.subtitle}>Certified Lab Records</Text>
 
             <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-              {/* We will populate live historic database reads here next! */}
-              <Text style={{ color: '#7f8c8d', textAlign: 'center', marginTop: 40, fontStyle: 'italic' }}>
-                End of historical log registry.
-              </Text>
+              {assayHistory.length === 0 ? (
+                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No certified records found yet.</Text>
+              ) : (
+                assayHistory.map((item) => (
+                  <View key={item.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15, borderLeftWidth: 4, borderLeftColor: '#3498db' }]}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Batch: {item.sampleId}</Text>
+                    <Text style={{ color: '#2ecc71', fontSize: 16, fontWeight: 'bold', marginTop: 4 }}>
+                      💎 Certified Purity: {item.purityGrade}
+                    </Text>
+                    <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>
+                      📦 Ore: {item.oreType} | ⚖️ Mass: {item.initialWeight}kg
+                    </Text>
+                    <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6 }}>
+                      🔬 Inspected By: {item.certifiedBy || 'Unknown Metallurgist'}
+                    </Text>
+                  </View>
+                ))
+              )}
             </ScrollView>
 
             <TouchableOpacity style={styles.button} onPress={() => setScreen('metallurgist_dashboard')}>
@@ -1082,9 +1150,12 @@ const fetchStaffDirectory = async () => {
               <TouchableOpacity style={styles.roleButton} onPress={fetchSamplesForAnalysis}>
                 <Text style={styles.buttonText}>🧪 Analyze Pending Samples</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => setScreen('assay_history')}>
-                <Text style={styles.buttonText}>📜 View Assay History</Text>
-              </TouchableOpacity>
+              <TouchableOpacity 
+  style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
+  onPress={fetchAssayHistory} // 👈 Fiers the data fetcher now!
+>
+  <Text style={styles.buttonText}>📜 View Assay History</Text>
+</TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
