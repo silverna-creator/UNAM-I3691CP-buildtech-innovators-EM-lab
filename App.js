@@ -875,58 +875,120 @@ const fetchStaffDirectory = async () => {
       </SafeAreaProvider>
     );
   }
+
+  if (screen === 'analysis_queue') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Assay Queue</Text>
+            <Text style={styles.subtitle}>Pending Quality Assurance Verification</Text>
+
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              {pendingSamples.length === 0 ? (
+                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>All samples certified. Queue is clear!</Text>
+              ) : (
+                pendingSamples.map((item) => (
+                  <View key={item.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15 }]}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Sample: {item.sampleId}</Text>
+                    <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>📦 Mineral: {item.mineralType} | ⚖️ Weight: {item.initialWeight}kg</Text>
+                    <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 4 }}>Logged By: {item.loggedBy}</Text>
+                    
+                    {selectedSample === item.id ? (
+                      <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: '#2e4053', paddingTop: 10 }}>
+                        <TextInput 
+                          style={[styles.input, { marginBottom: 10, backgroundColor: '#161625' }]} 
+                          placeholder="Enter Certified Purity Grade (e.g. 88.4%)" 
+                          value={gradePurity} 
+                          onChangeText={setGradePurity} 
+                          placeholderTextColor="#888" 
+                        />
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <TouchableOpacity 
+                            style={[styles.loginButton, { flex: 1, marginRight: 5, paddingVertical: 8, height: 'auto' }]} 
+                            onPress={() => submitAssayResults(item.id)}
+                          >
+                            <Text style={styles.loginButtonText}>Seal Assay</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={[styles.loginButton, { flex: 1, marginLeft: 5, backgroundColor: '#7f8c8d', paddingVertical: 8, height: 'auto' }]} 
+                            onPress={() => { setSelectedSample(null); setGradePurity(''); }}
+                          >
+                            <Text style={styles.loginButtonText}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <TouchableOpacity 
+                        style={[styles.roleButton, { marginTop: 10, paddingVertical: 6, backgroundColor: '#27ae60' }]} 
+                        onPress={() => setSelectedSample(item.id)}
+                      >
+                        <Text style={styles.buttonText}>🧪 Run Chemical Assay</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('metallurgist_dashboard')}>
+              <Text style={styles.buttonText}>Back to Dashboard</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  // --- 📜 METALLURGIST ASSAY HISTORY SCREEN ---
+  if (screen === 'assay_history') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Assay History</Text>
+            <Text style={styles.subtitle}>Certified Lab Records</Text>
+
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              {/* We will populate live historic database reads here next! */}
+              <Text style={{ color: '#7f8c8d', textAlign: 'center', marginTop: 40, fontStyle: 'italic' }}>
+                End of historical log registry.
+              </Text>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('metallurgist_dashboard')}>
+              <Text style={styles.buttonText}>Return to Dashboard</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
   
   // --- MAIN LAYOUT GATE (DASHBOARD, PROFILE, LOGIN) ---
   const userRole = role ? role.toLowerCase().trim() : '';
 
-  return (
-    <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}> 
-        {/* --- DASHBOARD VIEW --- */}
-        {screen === 'dashboard' && (
+  // 🛡️ 1. COMPANY ADMINISTRATOR MAIN WORKSPACE
+  if (screen === 'dashboard' && userRole === 'admin') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
           <SafeAreaView style={styles.container}>
             <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>{companyName} - {role}</Text>
+            <Text style={styles.subtitle}>{companyName} - ADMIN PANEL</Text>
             
-            {userRole === 'admin' && (
-              <View style={styles.roleBox}>
-                <Text style={styles.roleTitle}>Admin Dashboard</Text>
-                <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('signup')}>
-                  <Text style={styles.buttonText}>Register New Staff</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchStaffDirectory}>
-                  <Text style={styles.buttonText}>📋 View Active Staff Directory</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#e67e22', marginTop: 10 }]} onPress={() => setScreen('system_settings')}>
-                  <Text style={styles.buttonText}>⚙️ Manage System Settings</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {userRole === 'lab technician' && (
-              <View style={styles.roleBox}>
-                <Text style={styles.roleTitle}>Technician Portal</Text>
-                <TouchableOpacity style={styles.roleButton}>
-                  <Text style={styles.buttonText}>Log Test Results</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {userRole === 'metallurgist' && (
-              <View style={styles.roleBox}>
-                <Text style={styles.roleTitle}>Metallurgist Portal</Text>
-                <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>Analyze Sample Data</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>Generate Quality Reports</Text></TouchableOpacity>
-              </View>
-            )}
-
-            {userRole === 'furnace operator' && (
-              <View style={styles.roleBox}>
-                <Text style={styles.roleTitle}>Furnace Operations</Text>
-                <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>Log Melt Cycle Data</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.roleButton}><Text style={styles.buttonText}>Monitor Furnace Status</Text></TouchableOpacity>
-              </View>
-            )}
+            <View style={styles.roleBox}>
+              <Text style={styles.roleTitle}>Admin Dashboard</Text>
+              <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('signup')}>
+                <Text style={styles.buttonText}>Register New Staff</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchStaffDirectory}>
+                <Text style={styles.buttonText}>📋 View Active Staff Directory</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#e67e22', marginTop: 10 }]} onPress={() => setScreen('system_settings')}>
+                <Text style={styles.buttonText}>⚙️ Manage System Settings</Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
               <Text style={styles.buttonText}>View Profile</Text>
@@ -935,27 +997,30 @@ const fetchStaffDirectory = async () => {
               <Text style={styles.buttonText}>Logout</Text>
             </TouchableOpacity>
           </SafeAreaView>
-        )}
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
-        {/* --- 🔬 LAB TECHNICIAN MATCHING DASHBOARD PORTAL --- */}
-        {screen === 'lab_technician_dashboard' && (
+  // 🧪 2. LAB TECHNICIAN MAIN WORKSPACE
+  if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole === 'lab technician')) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
           <SafeAreaView style={styles.container}>
             <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>{companyName} - {role.toUpperCase()}</Text>
+            <Text style={styles.subtitle}>{companyName} - TECHNICIAN</Text>
 
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Technician Portal</Text>
-              
               <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_sample')}>
                 <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchMineralSamples}>
                 <Text style={styles.buttonText}>📋 View Logged Samples</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Standard Uniform Bottom Buttons */}
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
               <Text style={styles.buttonText}>View Profile</Text>
             </TouchableOpacity>
@@ -963,27 +1028,30 @@ const fetchStaffDirectory = async () => {
               <Text style={styles.buttonText}>Logout</Text>
             </TouchableOpacity>
           </SafeAreaView>
-        )}
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
-        {/* --- 🔥 FURNACE OPERATOR MATCHING DASHBOARD PORTAL --- */}
-        {screen === 'furnace_operator_dashboard' && (
+  // 🌋 3. FURNACE OPERATOR MAIN WORKSPACE
+  if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRole === 'furnace operator')) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
           <SafeAreaView style={styles.container}>
             <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>{companyName} - {role.toUpperCase()}</Text>
+            <Text style={styles.subtitle}>{companyName} - FURNACE OPERATIONS</Text>
 
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Furnace Operations</Text>
-              
               <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_melt_cycle')}>
                 <Text style={styles.buttonText}>🌋 Log Melt Cycle Data</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchFurnaceOperations}>
                 <Text style={styles.buttonText}>📊 Monitor Furnace Status</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Standard Uniform Bottom Buttons */}
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
               <Text style={styles.buttonText}>View Profile</Text>
             </TouchableOpacity>
@@ -991,39 +1059,47 @@ const fetchStaffDirectory = async () => {
               <Text style={styles.buttonText}>Logout</Text>
             </TouchableOpacity>
           </SafeAreaView>
-        )}
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
-        {/* --- 🔬 5. METALLURGIST PORTAL DASHBOARD --- */}
-        {screen === 'metallurgist_dashboard' && (
+  // 🔬 4. METALLURGIST QUALITY WORKSPACE
+  if (screen === 'metallurgist_dashboard' || (screen === 'dashboard' && userRole === 'metallurgist')) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
           <SafeAreaView style={styles.container}>
             <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>{companyName} - {role ? role.toUpperCase() : ''}</Text>
+            <Text style={styles.subtitle}>{companyName} - METALLURGIST</Text>
 
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Quality Assurance & Analysis</Text>
-              
               <TouchableOpacity style={styles.roleButton} onPress={fetchSamplesForAnalysis}>
                 <Text style={styles.buttonText}>🧪 Analyze Pending Samples</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => setScreen('assay_history')}>
                 <Text style={styles.buttonText}>📜 View Assay History</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Standard Uniform Bottom Navigation */}
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
               <Text style={styles.buttonText}>View Profile</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
               <Text style={styles.buttonText}>Logout</Text>
             </TouchableOpacity>
           </SafeAreaView>
-        )}
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
-        {/* --- PROFILE VIEW --- */}
-        {screen === 'profile' && (
+  // 👤 5. UNIFORM PROFILE INTERFACE
+  if (screen === 'profile') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
           <SafeAreaView style={styles.container}>
             <Text style={styles.title}>Profile</Text>
             <View style={styles.roleBox}>
@@ -1048,41 +1124,50 @@ const fetchStaffDirectory = async () => {
                 <Text style={styles.buttonText}>Change Password</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
+            <TouchableOpacity style={styles.button} onPress={() => {
+              if (userRole === 'admin') setScreen('dashboard');
+              else if (userRole === 'lab technician') setScreen('lab_technician_dashboard');
+              else if (userRole === 'furnace operator') setScreen('furnace_operator_dashboard');
+              else if (userRole === 'metallurgist') setScreen('metallurgist_dashboard');
+            }}>
               <Text style={styles.buttonText}>Back to Dashboard</Text>
             </TouchableOpacity>
           </SafeAreaView>
-        )}
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
-        {/* --- LOGIN VIEW --- */}
-        {screen === 'login' && (
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
-            <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" placeholderTextColor="#888" />
-            <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#888" />
-            
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Login</Text>
+  // 🔑 6. BASELINE CATCH-ALL DEFAULT INTERFACE (FALLBACK TO LOGIN IF NO ROLE ACTIVE)
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}> 
+        <SafeAreaView style={styles.container}>
+          <Text style={styles.title}>EM-Lab</Text>
+          <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
+          <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" placeholderTextColor="#888" />
+          <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#888" />
+          
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>Login</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 15 }}>
+            <Text style={[styles.switchText, { textDecorationLine: 'underline' }]}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <View style={{ marginTop: 20 }}>
+            <Text style={styles.switchText}>Staff: Contact your Manager for access.</Text>
+            <TouchableOpacity onPress={() => {
+               setRegName(''); setRegEmail(''); setRegPassword(''); setRegRole('');
+               setScreen('signup');
+            }}>
+              <Text style={[styles.switchText, { marginTop: 10, textDecorationLine: 'none' }]}>
+                Are you a Lab Manager? <Text style={styles.signUpText}>Register your Company</Text>
+              </Text>  
             </TouchableOpacity>
-
-            <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 15 }}>
-              <Text style={[styles.switchText, { textDecorationLine: 'underline' }]}>Forgot Password?</Text>
-            </TouchableOpacity>
-
-            <View style={{ marginTop: 20 }}>
-              <Text style={styles.switchText}>Staff: Contact your Manager for access.</Text>
-              <TouchableOpacity onPress={() => {
-                 setRegName(''); setRegEmail(''); setRegPassword(''); setRegRole('');
-                 setScreen('signup');
-              }}>
-                <Text style={[styles.switchText, { marginTop: 10, textDecorationLine: 'none' }]}>
-                  Are you a Lab Manager? <Text style={styles.signUpText}>Register your Company</Text>
-                </Text>  
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        )}
+          </View>
+        </SafeAreaView>
       </View>
     </SafeAreaProvider>
   );
