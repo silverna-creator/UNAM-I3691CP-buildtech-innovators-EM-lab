@@ -437,7 +437,7 @@ const fetchStaffDirectory = async () => {
       };
 
       // Add to Firestore
-      const docRef = await addDoc(collection(db, "samples"), sampleData);
+      const docRef = await addDoc(collection(db, "mineral_samples"), sampleData);
       console.log("Sample stored successfully with ID:", docRef.id);
 
       const successMsg = `Sample ${sampleId} logged successfully!`;
@@ -934,63 +934,76 @@ const fetchStaffDirectory = async () => {
     );
   }
 
+  
+  // --- 🧪 METALLURGIST ACTIVE ASSAY QUEUE SCREEN ---
   if (screen === 'analysis_queue') {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
           <SafeAreaView style={styles.container}>
             <Text style={styles.title}>Assay Queue</Text>
-            <Text style={styles.subtitle}>Pending Quality Assurance Verification</Text>
+            <Text style={styles.subtitle}>Pending Quality Analysis</Text>
 
-            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-              {pendingSamples.length === 0 ? (
-                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>All samples certified. Queue is clear!</Text>
-              ) : (
-                pendingSamples.map((item) => (
-                  <View key={item.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15 }]}>
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Sample: {item.sampleId}</Text>
-                    <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>📦 Mineral: {item.mineralType} | ⚖️ Weight: {item.initialWeight}kg</Text>
-                    <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 4 }}>Logged By: {item.loggedBy}</Text>
-                    
-                    {selectedSample === item.id ? (
-                      <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: '#2e4053', paddingTop: 10 }}>
-                        <TextInput 
-                          style={[styles.input, { marginBottom: 10, backgroundColor: '#161625' }]} 
-                          placeholder="Enter Certified Purity Grade (e.g. 88.4%)" 
-                          value={gradePurity} 
-                          onChangeText={setGradePurity} 
-                          placeholderTextColor="#888" 
-                        />
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                          <TouchableOpacity 
-                            style={[styles.loginButton, { flex: 1, marginRight: 5, paddingVertical: 8, height: 'auto' }]} 
-                            onPress={() => submitAssayResults(item.id)}
-                          >
-                            <Text style={styles.loginButtonText}>Seal Assay</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={[styles.loginButton, { flex: 1, marginLeft: 5, backgroundColor: '#7f8c8d', paddingVertical: 8, height: 'auto' }]} 
-                            onPress={() => { setSelectedSample(null); setGradePurity(''); }}
-                          >
-                            <Text style={styles.loginButtonText}>Cancel</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ) : (
-                      <TouchableOpacity 
-                        style={[styles.roleButton, { marginTop: 10, paddingVertical: 6, backgroundColor: '#27ae60' }]} 
-                        onPress={() => setSelectedSample(item.id)}
-                      >
-                        <Text style={styles.buttonText}>🧪 Run Chemical Assay</Text>
-                      </TouchableOpacity>
-                    )}
+            {/* IF A SAMPLE IS SELECTED FOR EVALUATION, SHOW PROCESSING PORTAL */}
+            {selectedSample ? (
+              <View style={styles.roleBox}>
+                <Text style={[styles.roleTitle, { color: '#e74c3c' }]}>Evaluating Batch: {selectedSample.sampleId}</Text>
+                <Text style={{ color: '#fff', marginBottom: 5 }}>Ore Matrix: {selectedSample.oreType}</Text>
+                <Text style={{ color: '#fff', marginBottom: 15 }}>Input Mass: {selectedSample.initialWeight} kg</Text>
+                
+                <Text style={{ color: '#3498db', fontWeight: 'bold', marginBottom: 5 }}>Enter Certified Purity Grade:</Text>
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="e.g., 94.2% Au or Grade A" 
+                  value={gradePurity} 
+                  onChangeText={setGradePurity}
+                  placeholderTextColor="#888"
+                />
+
+                <TouchableOpacity 
+                  style={[styles.roleButton, { backgroundColor: '#2ecc71', marginTop: 10 }]} 
+                  onPress={() => submitAssayResults(selectedSample.id)}
+                >
+                  <Text style={styles.buttonText}>🔒 Seal & Certify Assay</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.roleButton, { backgroundColor: '#7f8c8d', marginTop: 10 }]} 
+                  onPress={() => { setSelectedSample(null); setGradePurity(''); }}
+                >
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              /* OTHERWISE, SHOW THE LIST OF PENDING SAMPLES */
+              <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+                {pendingSamples.length === 0 ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#fff', textAlign: 'center', fontSize: 16, marginTop: 20 }}>
+                      ✅ All samples certified. Queue is clear!
+                    </Text>
                   </View>
-                ))
-              )}
-            </ScrollView>
+                ) : (
+                  pendingSamples.map((sample) => (
+                    <View key={sample.id} style={[styles.roleBox, { padding: 15, marginBottom: 10 }]}>
+                      <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Sample: {sample.sampleId}</Text>
+                      <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>Type: {sample.oreType} | Mass: {sample.initialWeight}kg</Text>
+                      <Text style={{ color: '#e67e22', fontSize: 12, fontWeight: 'bold', marginTop: 4 }}>⚠️ Status: {sample.status}</Text>
+                      
+                      <TouchableOpacity 
+                        style={[styles.roleButton, { backgroundColor: '#3498db', marginTop: 12, paddingVertical: 8 }]} 
+                        onPress={() => setSelectedSample(sample)}
+                      >
+                        <Text style={styles.buttonText}>🔬 Run Chemical Analysis</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            )}
 
             <TouchableOpacity style={styles.button} onPress={() => setScreen('metallurgist_dashboard')}>
-              <Text style={styles.buttonText}>Back to Dashboard</Text>
+              <Text style={styles.buttonText}>Return to Dashboard</Text>
             </TouchableOpacity>
           </SafeAreaView>
         </View>
