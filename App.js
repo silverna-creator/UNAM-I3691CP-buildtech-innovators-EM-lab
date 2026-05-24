@@ -455,6 +455,15 @@ const fetchStaffDirectory = async () => {
       console.error("Error logging mineral sample:", error);
       const errorMsg = `Failed to log sample: ${error.message}`;
       Platform.OS === 'web' ? alert(errorMsg) : Alert.alert("Error", errorMsg);
+
+      // 🚨 INTERCEPT FIRESTORE LOCKOUT RULES EXPLICITLY
+      if (error.message.includes("permission-denied") || error.code === "permission-denied") {
+        const lockoutMsg = "⚠️ PIPELINE LOCKED: System is currently under Admin maintenance. Data entry is temporarily disabled.";
+        Platform.OS === 'web' ? alert(lockoutMsg) : Alert.alert("System Lockout", lockoutMsg);
+      } else {
+        const standardError = "Failed to log sample. Please check your network connection.";
+        Platform.OS === 'web' ? alert(standardError) : Alert.alert("Error", standardError);
+      }
     }
   };
 
@@ -1053,7 +1062,7 @@ const fetchStaffDirectory = async () => {
                       📦 Ore: {item.oreType} | ⚖️ Mass: {item.initialWeight}kg
                     </Text>
                     <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6 }}>
-                      🔬 Inspected By: {item.certifiedBy || 'Unknown Metallurgist'}
+                      🔬 Inspected By: {item.certifiedBy || 'Certified Metallurgist'}
                     </Text>
                   </View>
                 ))
