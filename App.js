@@ -613,7 +613,7 @@ const fetchStaffDirectory = async () => {
     console.log("Fetching certified assay records...");
     const q = query(
       collection(db, "mineral_samples"),
-      where("status", "==", "Completed")
+      where("status", "==", "Approved")
     );
 
     const querySnapshot = await getDocs(q);
