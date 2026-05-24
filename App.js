@@ -131,14 +131,13 @@ export default function App() {
               setScreen('dashboard'); 
             } else if (userRole === 'lab technician') {
               console.log(`Routing ${userData.fullName} to Lab Technician Portal smoothly...`);
-              
-              // 🚀 FIX: Switch screens immediately so the UI doesn't freeze!
               setScreen('lab_technician_dashboard'); 
-              
-              // Run the fetch in the background without blocking the UI thread
               fetchMineralSamples();
             } else if (userRole === 'furnace operator') {
               setScreen('furnace_operator_dashboard'); 
+            } else if (userRole === 'metallurgist') {
+              // 🔬 FIXED: Added explicit background listener support for metallurgist profiles!
+              setScreen('metallurgist_dashboard'); 
             } else {
               setScreen('login');
             }
