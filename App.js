@@ -512,6 +512,60 @@ const fetchStaffDirectory = async () => {
       console.error("Error retrieving furnace operations:", error);
     }
   };
+
+  // 1. Fetch Samples Needing Quality Assurance Review
+  const fetchSamplesForAnalysis = async () => {
+    if (!companyName) return;
+    try {
+      // Look for samples belonging to this company that are still pending review
+      const q = query(
+        collection(db, "mineral_samples"),
+        where("companyId", "==", companyName),
+        where("status", "==", "Pending Analysis")
+      );
+
+      const querySnapshot = await getDocs(q);
+      const samples = [];
+      querySnapshot.forEach((doc) => {
+        samples.push({ id: doc.id, ...doc.data() });
+      });
+
+      setPendingSamples(samples);
+      setScreen('analysis_queue'); // Direct the operator to the review table view
+    } catch (error) {
+      console.error("Error fetching analysis queue:", error);
+    }
+  };
+
+  // 2. Submit Chemical Grade Assay Results to Firestore
+  const submitAssayResults = async (sampleIdToUpdate) => {
+    if (!gradePurity.trim()) {
+      const msg = "Please input a dynamic purity grade evaluation (e.g., 84.5%).";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, "mineral_samples", sampleIdToUpdate);
+      
+      // Update the status and add the metallurgical grade stamp
+      await updateDoc(docRef, {
+        status: "Approved",
+        purityGrade: gradePurity.trim(),
+        evaluatedBy: fullName,
+        evaluatedAt: new Date().toISOString()
+      });
+
+      const successMsg = "Assay certified successfully! Material released for melt cycles.";
+      Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
+      
+      setGradePurity('');
+      setSelectedSample(null);
+      fetchSamplesForAnalysis(); // Reload the remaining items in queue automatically
+    } catch (error) {
+      console.error("Error committing assay update:", error);
+    }
+  };
   
   // --- NAVIGATION SCREEN ROUTING TERMINALS ---
   if (!isReady || screen === 'loading') {
@@ -827,13 +881,7 @@ const fetchStaffDirectory = async () => {
 
   return (
     <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-
-        {/* 🚨 TEMPORARY DEBUG FLAG - REMOVE AFTER FIXING */}
-        <Text style={{ color: '#ffec3d', textAlign: 'center', marginTop: 40, fontSize: 12 }}>
-          DEBUG INFO: Screen is currently '{screen}' | Role is '{role}'
-        </Text>
-        
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}> 
         {/* --- DASHBOARD VIEW --- */}
         {screen === 'dashboard' && (
           <SafeAreaView style={styles.container}>
@@ -954,11 +1002,11 @@ const fetchStaffDirectory = async () => {
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Quality Assurance & Analysis</Text>
               
-              <TouchableOpacity style={styles.roleButton} onPress={() => alert("Assay analysis queue coming up next!")}>
+              <TouchableOpacity style={styles.roleButton} onPress={fetchSamplesForAnalysis}>
                 <Text style={styles.buttonText}>🧪 Analyze Pending Samples</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => alert("Assay history tracker coming up next!")}>
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => setScreen('assay_history')}>
                 <Text style={styles.buttonText}>📜 View Assay History</Text>
               </TouchableOpacity>
             </View>
