@@ -134,6 +134,8 @@ export default function App() {
 
   const [assayHistory, setAssayHistory] = useState([]);
 
+  const [loggedSamples, setLoggedSamples] = useState([]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
       if (authenticatedUser) {
@@ -457,32 +459,34 @@ const fetchStaffDirectory = async () => {
   };
 
   const fetchMineralSamples = async () => {
-    if (!companyName) return;
+  setScreen('sample_directory');
 
-    try {
-      console.log("Fetching mineral samples for company:", companyName);
-      
-      const samplesQuery = query(
-        collection(db, "samples"),
-        where("company", "==", companyName)
-      );
+  try {
+    console.log("Fetching company logs from mineral_samples...");
+    const samplesRef = collection(db, "mineral_samples");
+    let q;
 
-      const querySnapshot = await getDocs(samplesQuery);
-      const samples = [];
-
-      querySnapshot.forEach((doc) => {
-        samples.push({ id: doc.id, ...doc.data() });
-      });
-
-      // Sort by newest arrival first
-      samples.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-      setSamplesList(samples);
-      setScreen('sample_directory'); // Ensure they stay/go to the portal view
-    } catch (error) {
-      console.error("Error fetching mineral samples:", error);
+    // 🛡️ Safety Check: If companyName exists, filter by it. Otherwise, pull all for testing.
+    if (companyName && companyName.trim() !== "") {
+      console.log(`Filtering logs for company: "${companyName}"`);
+      q = query(samplesRef, where("company", "==", companyName));
+    } else {
+      console.log("⚠️ companyName state is empty! Pulling global sample log instead.");
+      q = query(samplesRef); 
     }
-  };
+
+    const querySnapshot = await getDocs(q);
+    const samplesList = [];
+    querySnapshot.forEach((doc) => {
+      samplesList.push({ id: doc.id, ...doc.data() });
+    });
+
+    setLoggedSamples(samplesList);
+    console.log("Successfully loaded records into state array:", samplesList.length);
+  } catch (error) {
+    console.error("Error reading technician inventory log:", error);
+  }
+};
 
   // 1. Commit Melt Cycle to Firestore
   const logMeltCycle = async (e) => {
@@ -774,21 +778,36 @@ const fetchStaffDirectory = async () => {
             <Text style={styles.subtitle}>Active Laboratory Inventory</Text>
 
             <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-              {samplesList.length === 0 ? (
-                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No samples registered yet.</Text>
-              ) : (
-                samplesList.map((item) => (
-                  <View key={item.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15 }]}>
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{item.sampleId}</Text>
-                    <Text style={{ color: '#f1c40f', fontSize: 14, fontWeight: '600', marginTop: 2 }}>
-                      ⚙️ Status: {item.status}
-                    </Text>
-                    <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>Classification: {item.oreType} | Weight: {item.initialWeight} kg</Text>
-                    <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 4 }}>Logged By: {item.loggedBy}</Text>
-                  </View>
-                ))
-              )}
-            </ScrollView>
+  {/* 👇 Using a clean fallback check to make sure React watches the live array state */}
+  {!loggedSamples || loggedSamples.length === 0 ? (
+    <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
+      No samples found in local memory pool yet.
+    </Text>
+  ) : (
+    loggedSamples.map((item) => (
+      <View key={item.id} style={[{ backgroundColor: '#2e4053', padding: 15, marginBottom: 10, borderRadius: 8 }]}>
+        {/* 📋 Render checking: standardizing fallback text values */}
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
+          Batch ID: {item.sampleId || "UNKNOWN_ID"}
+        </Text>
+        <Text style={{ color: '#3498db', fontSize: 14, marginTop: 4 }}>
+          Ore Matrix: {item.oreType || "Not Specified"}
+        </Text>
+        <Text style={{ color: '#c8d4e6', fontSize: 13 }}>
+          Mass: {item.initialWeight || 0} kg
+        </Text>
+        <Text style={{ 
+          color: item.status === 'Completed' ? '#2ecc71' : '#e67e22', 
+          fontSize: 12, 
+          fontWeight: 'bold', 
+          marginTop: 6 
+        }}>
+          Status Pipeline: {item.status || "Pending Analysis"}
+        </Text>
+      </View>
+    ))
+  )}
+</ScrollView>
 
             <TouchableOpacity style={styles.button} onPress={() => setScreen('lab_technician_dashboard')}>
               <Text style={styles.buttonText}>Back to Dashboard</Text>
