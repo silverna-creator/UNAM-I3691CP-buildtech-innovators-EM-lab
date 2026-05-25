@@ -136,6 +136,7 @@ export default function App() {
 
   const [loggedSamples, setLoggedSamples] = useState([]);
 
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
       if (authenticatedUser) {
