@@ -77,6 +77,7 @@ export default function App() {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regRole, setRegRole] = useState('');
+  const [regCompany, setRegCompany] = useState('');
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -250,12 +251,13 @@ export default function App() {
   };
 
   const handleSignup = async () => {
-    const normalizedCompany = companyName ? companyName.toUpperCase().trim() : '';
+    // 🛡️ Use the dedicated regCompany state to prevent multi-tenant data bleeding
+    const normalizedCompany = regCompany ? regCompany.toUpperCase().trim() : '';
     const adminUser = auth.currentUser; 
     const assignedRole = adminUser ? regRole : 'Admin'; 
 
     if (!regEmail || !regPassword || !regName || !assignedRole || !normalizedCompany) {
-      const msg = 'Please fill in all fields';
+      const msg = 'Please fill in all fields before submitting registration.';
       Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
       return;
     }
@@ -264,6 +266,7 @@ export default function App() {
       let newUserUid;
 
       if (adminUser) {
+        // Staff creation path for currently logged-in Admin manager
         const secondaryAppName = `SilentApp_${Math.random().toString(36).substring(7)}`;
         const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
         const secondaryAuth = getAuth(secondaryApp);
@@ -273,10 +276,11 @@ export default function App() {
 
         await secondaryAuth.signOut();
       } else {
+        // Fresh sign up path: check if this company name is already registered in the ecosystem
         const companyQuery = query(collection(db, "users"), where("company", "==", normalizedCompany));
         const querySnapshot = await getDocs(companyQuery);
         if (!querySnapshot.empty) {
-          const msg = "This Company Name is already registered.";
+          const msg = "This Company Name is already registered on our network.";
           Platform.OS === 'web' ? alert(msg) : Alert.alert("Name Taken", msg);
           return;
         }
@@ -285,6 +289,7 @@ export default function App() {
         newUserUid = userCredential.user.uid;
       }
 
+      // Commit the new user document into the central users collection
       await setDoc(doc(db, "users", newUserUid), {
         fullName: regName,
         company: normalizedCompany,
@@ -297,18 +302,24 @@ export default function App() {
         setUser(adminUser); 
         setScreen('dashboard'); 
         
-        const msg = `Staff member ${regName} successfully registered!`;
-        if (Platform.OS === 'web') alert(msg);
-        else Alert.alert('Success', msg);
+        const msg = `Staff member ${regName} successfully registered under ${normalizedCompany}!`;
+        Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
 
         // Clear out the boxes safely
         setRegName('');
         setRegEmail('');
         setRegPassword('');
         setRegRole('');
+        setRegCompany(''); // Wipe the registration input box clean
       } else {
-        const msg = 'Company account created successfully! Please log in.';
+        const msg = `Company account for ${normalizedCompany} created successfully! Please log in with your Admin credentials.`;
         Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
+        
+        // Clear variables before shifting screen
+        setRegName('');
+        setRegEmail('');
+        setRegPassword('');
+        setRegCompany('');
         setScreen('login');
       }
 
@@ -632,7 +643,7 @@ const fetchStaffDirectory = async () => {
                 <Text style={styles.subtitle}>{auth.currentUser ? "Staff Registration Portal" : "Company Manager Registration"}</Text>
                  
                 <TextInput style={styles.input} placeholder="Full Name" value={regName} onChangeText={setRegName} placeholderTextColor="#888" />
-                <TextInput style={styles.input} placeholder="Company Name" value={companyName} onChangeText={setCompanyName} placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Company Name" value={regCompany} onChangeText={setRegCompany} placeholderTextColor="#888" />
                 
                 {auth.currentUser ? (
                   <TextInput 
