@@ -1234,8 +1234,33 @@ const fetchStaffDirectory = async () => {
         <SafeAreaView style={styles.container}>
           <Text style={styles.title}>EM-Lab</Text>
           <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
-          <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" placeholderTextColor="#888" />
-          <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="#888" />
+          
+          {/* 📬 UPDATED EMAIL FIELD WITH AUTOFILL SHIELD */}
+          <TextInput 
+            style={styles.input} 
+            placeholder="Email" 
+            value={email} 
+            onChangeText={setEmail} 
+            autoCapitalize="none" 
+            placeholderTextColor="#888" 
+            keyboardType="email-address"
+            autoComplete="off"              // Blocks standard web pre-filling loops
+            importantForAutofill="no"       // Directs mobile operating systems to bypass
+            textContentType="none"          // Drops native iOS credential suggestion trays
+          />
+          
+          {/* 🔑 UPDATED PASSWORD FIELD WITH AUTOFILL SHIELD */}
+          <TextInput 
+            style={styles.input} 
+            placeholder="Password" 
+            value={password} 
+            onChangeText={setPassword} 
+            secureTextEntry={true} 
+            placeholderTextColor="#888" 
+            autoComplete="new-password"     // Tricks browser scanners into skipping autofill matching
+            importantForAutofill="no"       // Drops mobile device hardware profile caching
+            textContentType="none"          // Prevents system password overlay popups
+          />
           
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <Text style={styles.loginButtonText}>Login</Text>
