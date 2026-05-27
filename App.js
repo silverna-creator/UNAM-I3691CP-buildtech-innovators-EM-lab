@@ -25,7 +25,7 @@ import {
   updatePassword
 } from "firebase/auth";
 
-import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- CONFIGURATION ---
@@ -357,6 +357,32 @@ export default function App() {
       setIsChangingPassword(false);
     } catch (error) {
       Alert.alert("Error", "Authentication failed.");
+    }
+  };
+
+  const handleDeleteStaff = async (staffId, staffName) => {
+    // 🛡️ Always display a critical confirmation window before wiping access profiles
+    const confirmAction = window.confirm(`CRITICAL SECURITY WARNING:\nAre you sure you want to permanently revoke access for ${staffName}? They will be instantly frozen out of the company platform.`);
+    
+    if (!confirmAction) return;
+
+    try {
+      // 1. Reference the user document in Firestore
+      const staffDocRef = doc(db, "users", staffId);
+      
+      // 2. Erase the profile data from the collection
+      await deleteDoc(staffDocRef);
+
+      // 3. ✨ UI LIVE REFRESH: Immediately filter out the deleted staff member from view state
+      setStaffList(prevList => prevList.filter(member => member.id !== staffId));
+
+      const msg = `${staffName} has been successfully purged from your company directory.`;
+      Platform.OS === 'web' ? alert(msg) : Alert.alert('Access Revoked', msg);
+
+    } catch (error) {
+      console.error("Purge Error:", error.message);
+      const errorMsg = `Failed to revoke access: ${error.message}`;
+      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Error', errorMsg);
     }
   };
 
@@ -699,12 +725,27 @@ const fetchStaffDirectory = async () => {
                 <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No staff members found.</Text>
               ) : (
                 staffList.map((member) => (
-                  <View key={member.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15 }]}>
+                  <View key={member.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15, position: 'relative' }]}>
                     <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{member.fullName}</Text>
                     <Text style={{ color: '#3498db', fontSize: 14, fontWeight: '600', marginTop: 2 }}>
                       💼 Role: {member.role}
                     </Text>
                     <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>✉️ Email: {member.email}</Text>
+                    
+                    {/* 🗑️ RED REVOKE ACCESS BUTTON */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
+                      <TouchableOpacity 
+                        style={{
+                          backgroundColor: '#e74c3c',
+                          paddingVertical: 6,
+                          paddingHorizontal: 12,
+                          borderRadius: 5,
+                        }} 
+                        onPress={() => handleDeleteStaff(member.id, member.fullName)}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Revoke Access</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))
               )}
