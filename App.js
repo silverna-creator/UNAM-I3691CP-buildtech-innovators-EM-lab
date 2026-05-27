@@ -664,7 +664,7 @@ const fetchStaffDirectory = async () => {
                       <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '500' }}>Role: Company Administrator</Text>
                     </View>
                   </View>
-                )} 
+                )}
 
                 <TextInput style={styles.input} placeholder="Email" value={regEmail} onChangeText={setRegEmail} autoCapitalize="none" placeholderTextColor="#888" />
                 <TextInput style={styles.input} placeholder="Password" value={regPassword} onChangeText={setRegPassword} secureTextEntry placeholderTextColor="#888" autoCapitalize="none" autoComplete="new-password"     // Directs browser engines to treat this as a fresh unlinked pass field
