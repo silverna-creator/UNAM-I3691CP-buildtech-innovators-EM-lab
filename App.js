@@ -643,7 +643,10 @@ const fetchStaffDirectory = async () => {
                 <Text style={styles.subtitle}>{auth.currentUser ? "Staff Registration Portal" : "Company Manager Registration"}</Text>
                  
                 <TextInput style={styles.input} placeholder="Full Name" value={regName} onChangeText={setRegName} placeholderTextColor="#888" />
-                <TextInput style={styles.input} placeholder="Company Name" value={regCompany} onChangeText={setRegCompany} placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Company Name" value={regCompany} onChangeText={setRegCompany} autoCapitalize="none" placeholderTextColor="#888" keyboardType="email-address"
+  autoComplete="off"              // Overrides browser cache scanners
+  importantForAutofill="no"       // Blocks mobile operating framework injection
+  textContentType="none" />
                 
                 {auth.currentUser ? (
                   <TextInput 
@@ -664,7 +667,9 @@ const fetchStaffDirectory = async () => {
                 )}
 
                 <TextInput style={styles.input} placeholder="Email" value={regEmail} onChangeText={setRegEmail} autoCapitalize="none" placeholderTextColor="#888" />
-                <TextInput style={styles.input} placeholder="Password" value={regPassword} onChangeText={setRegPassword} secureTextEntry placeholderTextColor="#888" />
+                <TextInput style={styles.input} placeholder="Password" value={regPassword} onChangeText={setRegPassword} secureTextEntry placeholderTextColor="#888" autoCapitalize="none" autoComplete="new-password"     // Directs browser engines to treat this as a fresh unlinked pass field
+  importantForAutofill="no"       // Drops device hardware level profile cache reads
+  textContentType="none" />
 
                 <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
                   <Text style={styles.loginButtonText}>Register</Text>
