@@ -40,37 +40,9 @@ const firebaseConfig = {
   measurementId: "G-D0YZ74XX6G"
 };
 
-const submitAssayResults = async (sampleDocId) => {
-  if (!gradePurity.trim()) {
-    alert("Please enter a valid purity grade before sealing.");
-    return;
-  }
-
-  try {
-    const sampleRef = doc(db, "mineral_samples", sampleDocId);
-    
-    // Update the document to move it out of the queue and into history
-    await updateDoc(sampleRef, {
-      status: "Completed",
-      purityGrade: gradePurity,
-      certifiedBy: fullName, // Track which metallurgist signed off
-      certifiedAt: serverTimestamp() // Official timestamp
-    });
-
-    alert("Assay sealed and certified successfully!");
-    setGradePurity('');
-    setSelectedSample(null);
-    
-    // Refresh the queue so the sealed sample vanishes from the pending list
-    fetchSamplesForAnalysis(); 
-  } catch (error) {
-    console.error("Error sealing assay:", error);
-  }
-};
-
 // --- SAFE INITIALIZATION ---
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-
+0
 // --- AUTH INITIALIZATION ---
 let auth;
 
