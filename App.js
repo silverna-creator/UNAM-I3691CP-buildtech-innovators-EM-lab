@@ -129,7 +129,7 @@ export default function App() {
             const userCompany = userData.company ? userData.company.trim() : "UNAM";
             setCompanyName(userCompany);
             
-            setEmail(userData.email || authenticatedUser.email);
+            // setEmail(userData.email || authenticatedUser.email);
 
             // 🚦 The Smart Router Gateway
             if (userRole === 'admin') {
