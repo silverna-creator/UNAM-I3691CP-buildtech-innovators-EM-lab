@@ -732,20 +732,22 @@ const fetchStaffDirectory = async () => {
                     </Text>
                     <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>✉️ Email: {member.email}</Text>
                     
-                    {/* 🗑️ RED REVOKE ACCESS BUTTON */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
-                      <TouchableOpacity 
-                        style={{
-                          backgroundColor: '#e74c3c',
-                          paddingVertical: 6,
-                          paddingHorizontal: 12,
-                          borderRadius: 5,
-                        }} 
-                        onPress={() => handleDeleteStaff(member.id, member.fullName)}
-                      >
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Revoke Access</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {/* 🛡️ SAFEGUARDED RED REVOKE ACCESS BUTTON */}
+                    {member.id !== auth.currentUser?.uid && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
+                        <TouchableOpacity 
+                          style={{
+                            backgroundColor: '#e74c3c',
+                            paddingVertical: 6,
+                            paddingHorizontal: 12,
+                            borderRadius: 5,
+                          }} 
+                          onPress={() => handleDeleteStaff(member.id, member.fullName)}
+                        >
+                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Revoke Access</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 ))
               )}
