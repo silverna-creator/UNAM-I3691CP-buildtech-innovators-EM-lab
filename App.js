@@ -698,10 +698,9 @@ const fetchStaffDirectory = async () => {
   };
 
   // 🔬 2. Submit Chemical Grade Assay Results (Handles both Approve & Decline pathways)
-  const submitAssayResults = async (actionType) => {
-    if (!selectedSample || !selectedSample.id) return;
-
-    const sampleIdToUpdate = selectedSample.id;
+  const submitAssayResults = async (sampleIdToUpdate, actionType) => {
+    // Accepting sampleIdToUpdate as argument 1, and actionType as argument 2
+    if (!sampleIdToUpdate) return;
 
     // 🟢 Validation for Approval Pathway
     if (actionType === 'Approved' && (!gradePurity || !gradePurity.trim())) {
@@ -748,14 +747,18 @@ const fetchStaffDirectory = async () => {
       setRejectionReason('');
       setSelectedSample(null);
       
-      // Reload remaining items in the queue automatically
+      // Reload remaining items and update the historical ledger automatically
       fetchSamplesForAnalysis(); 
+      if (typeof fetchAssayHistory === 'function') {
+        fetchAssayHistory();
+      }
     } catch (error) {
       console.error("Error committing assay update:", error);
-      Platform.OS === 'web' ? alert("Write error tracking failed.") : Alert.alert("Error", "Write error tracking failed.");
+      const errorMsg = "Write error tracking failed.";
+      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert("Error", errorMsg);
     }
   };
-
+  
   const fetchAssayHistory = async () => {
   // Flip the screen to the history view immediately so it feels snappy
   setScreen('assay_history');
@@ -763,14 +766,17 @@ const fetchStaffDirectory = async () => {
   try {
     console.log("Fetching certified assay records...");
     const q = query(
-      collection(db, "mineral_samples"),
-      where("status", "==", "Approved")
+      collection(db, "mineral_samples")
     );
 
     const querySnapshot = await getDocs(q);
     const historyLog = [];
     querySnapshot.forEach((doc) => {
-      historyLog.push({ id: doc.id, ...doc.data() });
+      const data = doc.data();
+  // Only include items that are completely finished processing
+  if (data.status === 'Approved' || data.status === 'Declined') { 
+    historyLog.push({ id: doc.id, ...data });
+  }
     });
 
     // Sort by dynamic timestamp if available, or just set state
