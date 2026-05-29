@@ -577,9 +577,9 @@ const fetchStaffDirectory = async () => {
     }
   };
   
- const fetchMineralSamples = async (passedCompany) => {
+const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) => {
     // 🏎️ RACE CONDITION BYPASS: Use the parameter string if passed during login, 
-    // otherwise fall back seamlessly to your state variable.
+    // otherwise fall back seamlessly to your state variable or filter out event objects.
     const activeCompany = (passedCompany && typeof passedCompany === 'string') ? passedCompany : companyName;
 
     try {
@@ -603,13 +603,16 @@ const fetchStaffDirectory = async () => {
       });
 
       setLoggedSamples(samplesList);
-      setScreen('view_samples');
       console.log("Successfully loaded records into state array:", samplesList.length);
+
+      // 🔄 CONTROLLED NAVIGATION: Only flip screens when explicitly instructed (e.g., clicked from Dashboard)
+      if (shouldSwitchScreen) {
+        setScreen('view_samples');
+      }
     } catch (error) {
       console.error("Error reading technician inventory log:", error);
     }
   };
-
 
   // 1. Commit Melt Cycle to Firestore
   const logMeltCycle = async (e) => {
@@ -1527,7 +1530,7 @@ const fetchStaffDirectory = async () => {
               <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_sample')}>
                 <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => fetchMineralSamples()} 
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => fetchMineralSamples(companyName, true)} 
 >
                 <Text style={styles.buttonText}>📋 View Logged Samples</Text>
               </TouchableOpacity>
