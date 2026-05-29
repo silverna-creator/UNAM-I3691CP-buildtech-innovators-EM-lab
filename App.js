@@ -578,9 +578,13 @@ const fetchStaffDirectory = async () => {
   };
   
  const fetchMineralSamples = async (passedCompany) => {
-    // 🏎️ RACE CONDITION BYPASS: Use the parameter string if passed during login, 
-    // otherwise fall back seamlessly to your state variable.
-    const activeCompany = passedCompany || companyName;
+    // 🛡️ TYPE SAFE-GUARD: Ensure we only treat strings as company tokens.
+    // If passedCompany is a React event object or empty, fall back dynamically to companyName state.
+    let activeCompany = companyName;
+    
+    if (passedCompany && typeof passedCompany === 'string') {
+      activeCompany = passedCompany;
+    }
 
     try {
       console.log(`🔍 Fetching company logs from mineral_samples for: [${activeCompany || 'GLOBAL'}]...`);
@@ -590,7 +594,7 @@ const fetchStaffDirectory = async () => {
       // 🛡️ Safe Multi-Tenant Filter Check
       if (activeCompany && activeCompany.trim() !== "") {
         console.log(`Filtering logs for company: "${activeCompany}"`);
-        q = query(samplesRef, where("company", "==", activeCompany));
+        q = query(samplesRef, where("company", "==", activeCompany.trim()));
       } else {
         console.log("⚠️ activeCompany token is empty! Pulling global sample log instead.");
         q = query(samplesRef); 
@@ -608,7 +612,6 @@ const fetchStaffDirectory = async () => {
       console.error("Error reading technician inventory log:", error);
     }
   };
-
 
   // 1. Commit Melt Cycle to Firestore
   const logMeltCycle = async (e) => {
@@ -1497,15 +1500,22 @@ const fetchStaffDirectory = async () => {
 
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Quality Assurance & Analysis</Text>
-              <TouchableOpacity style={styles.roleButton} onPress={fetchSamplesForAnalysis}>
+              
+              {/* ✅ Wrapped in an arrow function to prevent forwarding layout events */}
+              <TouchableOpacity 
+                style={styles.roleButton} 
+                onPress={() => fetchSamplesForAnalysis(companyName)}
+              >
                 <Text style={styles.buttonText}>🧪 Analyze Pending Samples</Text>
               </TouchableOpacity>
+              
+              {/* ✅ Wrapped in an arrow function to keep database paths clean */}
               <TouchableOpacity 
-  style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
-  onPress={fetchAssayHistory} // 👈 Fiers the data fetcher now!
->
-  <Text style={styles.buttonText}>📜 View Assay History</Text>
-</TouchableOpacity>
+                style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
+                onPress={() => fetchAssayHistory(companyName)} 
+              >
+                <Text style={styles.buttonText}>📜 View Assay History</Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
@@ -1519,7 +1529,7 @@ const fetchStaffDirectory = async () => {
       </SafeAreaProvider>
     );
   }
-
+  
   // 👤 5. UNIFORM PROFILE INTERFACE
   if (screen === 'profile') {
     return (
