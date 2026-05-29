@@ -278,10 +278,25 @@ export default function App() {
         const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
         const secondaryAuth = getAuth(secondaryApp);
 
+        // 1. Create the credentials in the cloud auth system
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, regEmail, regPassword);
         newUserUid = userCredential.user.uid;
 
-        await secondaryAuth.signOut();
+        // 2. Await the database confirmation completely before moving forward
+        await setDoc(doc(db, "users", newUserUid), {
+          fullName: regName,
+          company: normalizedCompany,
+          role: assignedRole,
+          email: regEmail,
+          createdAt: new Date()
+        });
+
+        // 3. Only sign out the background channel after the database explicitly finishes writing
+        try {
+          await secondaryAuth.signOut();
+        } catch (signOutError) {
+          console.log("Non-blocking secondary signout clean:", signOutError.message);
+        }
       } else {
         // Fresh sign up path: check if this company name is already registered in the ecosystem
         const companyQuery = query(collection(db, "users"), where("company", "==", normalizedCompany));
@@ -294,16 +309,16 @@ export default function App() {
 
         const userCredential = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
         newUserUid = userCredential.user.uid;
-      }
 
-      // Commit the new user document into the central users collection
-      await setDoc(doc(db, "users", newUserUid), {
-        fullName: regName,
-        company: normalizedCompany,
-        role: assignedRole,
-        email: regEmail,
-        createdAt: new Date()
-      });
+        // Regular signup path also writes to Firestore here
+        await setDoc(doc(db, "users", newUserUid), {
+          fullName: regName,
+          company: normalizedCompany,
+          role: assignedRole,
+          email: regEmail,
+          createdAt: new Date()
+        });
+      }
 
       if (adminUser) {
         setUser(adminUser); 
@@ -317,7 +332,7 @@ export default function App() {
         setRegEmail('');
         setRegPassword('');
         setRegRole('');
-        setRegCompany(''); // Wipe the registration input box clean
+        setRegCompany(''); 
       } else {
         const msg = `Company account for ${normalizedCompany} created successfully! Please log in with your Admin credentials.`;
         Platform.OS === 'web' ? alert(msg) : Alert.alert('Success', msg);
@@ -331,17 +346,16 @@ export default function App() {
       }
 
     } catch (error) {
-    // 🚨 THIS WILL PRINT THE EXACT HIDDEN ERROR CODE IN YOUR NPX TERMINAL
-    console.log("====================================");
-    console.log("🛑 REGISTRATION BREAKDOWN DIAGNOSTIC:");
-    console.log("CODE:", error.code);
-    console.log("MESSAGE:", error.message);
-    console.log("CURRENT ADMIN COMPANY STATE:", companyName); 
-    console.log("====================================");
+      console.log("====================================");
+      console.log("🛑 REGISTRATION BREAKDOWN DIAGNOSTIC:");
+      console.log("CODE:", error.code);
+      console.log("MESSAGE:", error.message);
+      console.log("CURRENT ADMIN COMPANY STATE:", companyName); 
+      console.log("====================================");
 
-    const errorMsg = `Registration Failed: ${error.message}`;
-    Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Error', errorMsg);
-  }
+      const errorMsg = `Registration Failed: ${error.message}`;
+      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Error', errorMsg);
+    }
   };
 
   const handleForgotPassword = () => {
