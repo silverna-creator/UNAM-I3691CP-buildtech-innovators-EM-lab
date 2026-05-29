@@ -22,7 +22,7 @@ import {
   sendPasswordResetEmail, 
   reauthenticateWithCredential,
   EmailAuthProvider,
-  updatePassword
+  updatePassword, browserLocalPersistence
 } from "firebase/auth";
 
 import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
@@ -42,15 +42,20 @@ const firebaseConfig = {
 
 // --- SAFE INITIALIZATION ---
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-0
-// --- AUTH INITIALIZATION ---
+
+// --- AUTH INITIALIZATION (UPDATED) ---
 let auth;
 
 if (Platform.OS === 'web') {
-  auth = getAuth(app);
+  // 🌐 Explicitly tell the browser to remember who is logged in
+  auth = initializeAuth(app, {
+    persistence: browserLocalPersistence,
+  });
 } else {
+  // 📱 Use mobile AsyncStorage persistence for Android / iOS engines
   try {
-    const { getReactNativePersistence } = require('firebase/auth/react-native');
+    // Changing 'firebase/auth/react-native' to 'firebase/auth' fixes the web compiler error
+    const { getReactNativePersistence } = require('firebase/auth');
     auth = initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
     });
