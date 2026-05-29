@@ -126,6 +126,8 @@ const [selectedOre, setSelectedOre] = useState('');
 
   const [loggedSamples, setLoggedSamples] = useState([]);
 
+  const [rejectionReason, setRejectionReason] = useState('');
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -695,10 +697,22 @@ const fetchStaffDirectory = async () => {
     }
   };
 
-  // 2. Submit Chemical Grade Assay Results to Firestore
-  const submitAssayResults = async (sampleIdToUpdate) => {
-    if (!gradePurity.trim()) {
+  // 🔬 2. Submit Chemical Grade Assay Results (Handles both Approve & Decline pathways)
+  const submitAssayResults = async (actionType) => {
+    if (!selectedSample || !selectedSample.id) return;
+
+    const sampleIdToUpdate = selectedSample.id;
+
+    // 🟢 Validation for Approval Pathway
+    if (actionType === 'Approved' && (!gradePurity || !gradePurity.trim())) {
       const msg = "Please input a dynamic purity grade evaluation (e.g., 84.5%).";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+
+    // 🔴 Validation for Decline Pathway
+    if (actionType === 'Declined' && (!rejectionReason || !rejectionReason.trim())) {
+      const msg = "Please provide a reason for declining this batch for mining records.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
     }
@@ -706,22 +720,39 @@ const fetchStaffDirectory = async () => {
     try {
       const docRef = doc(db, "mineral_samples", sampleIdToUpdate);
       
-      // Update the status and add the metallurgical grade stamp
-      await updateDoc(docRef, {
-        status: "Approved",
-        purityGrade: gradePurity.trim(),
-        evaluatedBy: fullName,
+      // Build the update bundle dynamically based on which button was pressed
+      const updateData = {
+        status: actionType, // Saves either "Approved" or "Declined"
+        evaluatedBy: fullName || "Certified Metallurgist",
         evaluatedAt: new Date().toISOString()
-      });
+      };
 
-      const successMsg = "Assay certified successfully! Material released for melt cycles.";
+      if (actionType === 'Approved') {
+        updateData.purityGrade = gradePurity.trim();
+        updateData.rejectionReason = ""; // Clear out any old text strings
+      } else {
+        updateData.purityGrade = "N/A - Declined";
+        updateData.rejectionReason = rejectionReason.trim(); // Save the reason note
+      }
+
+      await updateDoc(docRef, updateData);
+      
+      const successMsg = actionType === 'Approved' 
+        ? "Assay certified successfully! Material released for melt cycles."
+        : "Batch declined. Operational notification locked in laboratory ledger.";
+        
       Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
       
+      // Reset all interactive states
       setGradePurity('');
+      setRejectionReason('');
       setSelectedSample(null);
-      fetchSamplesForAnalysis(); // Reload the remaining items in queue automatically
+      
+      // Reload remaining items in the queue automatically
+      fetchSamplesForAnalysis(); 
     } catch (error) {
       console.error("Error committing assay update:", error);
+      Platform.OS === 'web' ? alert("Write error tracking failed.") : Alert.alert("Error", "Write error tracking failed.");
     }
   };
 
@@ -1189,29 +1220,56 @@ const fetchStaffDirectory = async () => {
             {/* IF A SAMPLE IS SELECTED FOR EVALUATION, SHOW PROCESSING PORTAL */}
             {selectedSample ? (
               <View style={styles.roleBox}>
-                <Text style={[styles.roleTitle, { color: '#e74c3c' }]}>Evaluating Batch: {selectedSample.sampleId}</Text>
+                <Text style={[styles.roleTitle, { color: '#e67e22' }]}>Evaluating Batch: {selectedSample.sampleId}</Text>
                 <Text style={{ color: '#fff', marginBottom: 5 }}>Ore Matrix: {selectedSample.oreType}</Text>
                 <Text style={{ color: '#fff', marginBottom: 15 }}>Input Mass: {selectedSample.initialWeight} kg</Text>
                 
-                <Text style={{ color: '#3498db', fontWeight: 'bold', marginBottom: 5 }}>Enter Certified Purity Grade:</Text>
+                {/* 🟢 SECTION A: APPROVAL INPUT */}
+                <Text style={{ color: '#2ecc71', fontWeight: 'bold', marginBottom: 5 }}>Option 1: Enter Certified Purity Grade to Approve:</Text>
                 <TextInput 
                   style={styles.input} 
                   placeholder="e.g., 94.2% Au or Grade A" 
                   value={gradePurity} 
-                  onChangeText={setGradePurity}
+                  onChangeText={(text) => {
+                    setGradePurity(text);
+                    if(text) setRejectionReason(''); // Clear rejection if typing purity
+                  }}
                   placeholderTextColor="#888"
                 />
 
                 <TouchableOpacity 
-                  style={[styles.roleButton, { backgroundColor: '#2ecc71', marginTop: 10 }]} 
-                  onPress={() => submitAssayResults(selectedSample.id)}
+                  style={[styles.roleButton, { backgroundColor: '#2ecc71', marginTop: 5, marginBottom: 15 }]} 
+                  onPress={() => submitAssayResults(selectedSample.id, 'Approved')}
                 >
                   <Text style={styles.buttonText}>🔒 Seal & Certify Assay</Text>
                 </TouchableOpacity>
 
+                <View style={{ height: 1, backgroundColor: '#444', marginVertical: 10 }} />
+
+                {/* 🔴 SECTION B: DECLINE INPUT */}
+                <Text style={{ color: '#e74c3c', fontWeight: 'bold', marginBottom: 5 }}>Option 2: Provide Reason to Decline Batch:</Text>
+                <TextInput 
+                  style={[styles.input, { borderColor: '#e74c3c' }]} 
+                  placeholder="e.g., High silica contamination, unprofitable" 
+                  value={rejectionReason} 
+                  onChangeText={(text) => {
+                    setRejectionReason(text);
+                    if(text) setGradePurity(''); // Clear purity if typing rejection
+                  }}
+                  placeholderTextColor="#888"
+                />
+
                 <TouchableOpacity 
-                  style={[styles.roleButton, { backgroundColor: '#7f8c8d', marginTop: 10 }]} 
-                  onPress={() => { setSelectedSample(null); setGradePurity(''); }}
+                  style={[styles.roleButton, { backgroundColor: '#e74c3c', marginTop: 5 }]} 
+                  onPress={() => submitAssayResults(selectedSample.id, 'Declined')}
+                >
+                  <Text style={styles.buttonText}>❌ Decline Batch</Text>
+                </TouchableOpacity>
+
+                {/* CANCEL WINDOW CLOSER */}
+                <TouchableOpacity 
+                  style={[styles.roleButton, { backgroundColor: '#7f8c8d', marginTop: 15 }]} 
+                  onPress={() => { setSelectedSample(null); setGradePurity(''); setRejectionReason(''); }}
                 >
                   <Text style={styles.buttonText}>Cancel</Text>
                 </TouchableOpacity>
@@ -1266,20 +1324,46 @@ const fetchStaffDirectory = async () => {
               {assayHistory.length === 0 ? (
                 <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No certified records found yet.</Text>
               ) : (
-                assayHistory.map((item) => (
-                  <View key={item.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15, borderLeftWidth: 4, borderLeftColor: '#3498db' }]}>
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Batch: {item.sampleId}</Text>
-                    <Text style={{ color: '#2ecc71', fontSize: 16, fontWeight: 'bold', marginTop: 4 }}>
-                      💎 Certified Purity: {item.purityGrade}
-                    </Text>
-                    <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>
-                      📦 Ore: {item.oreType} | ⚖️ Mass: {item.initialWeight}kg
-                    </Text>
-                    <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6 }}>
-                      🔬 Inspected By: {item.certifiedBy || 'Certified Metallurgist'}
-                    </Text>
-                  </View>
-                ))
+                assayHistory.map((item) => {
+                  const isDeclined = item.status === 'Declined';
+                  return (
+                    <View 
+                      key={item.id} 
+                      style={[
+                        styles.roleBox, 
+                        { 
+                          marginTop: 0, 
+                          marginBottom: 10, 
+                          padding: 15, 
+                          borderLeftWidth: 4, 
+                          borderLeftColor: isDeclined ? '#e74c3c' : '#2ecc71' 
+                        }
+                      ]}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Batch: {item.sampleId}</Text>
+                      
+                      {isDeclined ? (
+                        <View style={{ marginTop: 4 }}>
+                          <Text style={{ color: '#e74c3c', fontSize: 15, fontWeight: 'bold' }}>❌ Status: Declined</Text>
+                          <Text style={{ color: '#ff9ff3', fontSize: 14, fontStyle: 'italic', marginTop: 2 }}>
+                            Reason: "{item.rejectionReason || 'No reason provided'}"
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={{ color: '#2ecc71', fontSize: 16, fontWeight: 'bold', marginTop: 4 }}>
+                          💎 Certified Purity: {item.purityGrade || item.purity}
+                        </Text>
+                      )}
+
+                      <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 6 }}>
+                        📦 Ore: {item.oreType} | ⚖️ Mass: {item.initialWeight}kg
+                      </Text>
+                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6 }}>
+                        🔬 Inspected By: {item.certifiedBy || 'Certified Metallurgist'}
+                      </Text>
+                    </View>
+                  );
+                })
               )}
             </ScrollView>
 
