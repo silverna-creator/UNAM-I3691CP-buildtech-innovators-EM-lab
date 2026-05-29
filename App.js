@@ -40,6 +40,13 @@ const firebaseConfig = {
   measurementId: "G-D0YZ74XX6G"
 };
 
+const ORE_DATABASE = {
+  SULFIDES: ["Chalcopyrite (Cu)", "Galena (Pb)", "Sphalerite (Zn)", "Pyrite (Fe)"],
+  OXIDES: ["Hematite (Fe)", "Magnetite (Fe)", "Chromite (Cr)", "Bauxite (Al)"],
+  NATIVE: ["Gold (Au)", "Silver (Ag)", "Copper (Cu)"],
+  CARBONATES: ["Malachite (Cu)", "Azurite (Cu)", "Calcite (Ca)"]
+};
+
 // --- SAFE INITIALIZATION ---
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
@@ -96,10 +103,13 @@ export default function App() {
   const [isLabActive, setIsLabActive] = useState(true);
 
   // --- LAB TECHNICIAN STATES ---
-  const [samplesList, setSamplesList] = useState([]);
-  const [sampleId, setSampleId] = useState('');
-  const [oreType, setOreType] = useState('Copper'); // Default selection
-  const [initialWeight, setInitialWeight] = useState('');
+const [samplesList, setSamplesList] = useState([]); // 👈 Keep this so your list views don't break!
+const [sampleId, setSampleId] = useState('');
+const [initialWeight, setInitialWeight] = useState('');
+
+// 🔬 NEW SELECTION STATE TRACKERS 
+const [selectedGroup, setSelectedGroup] = useState('SULFIDES');
+const [selectedOre, setSelectedOre] = useState('');
 
   // Furnace Operator Form States
   const [meltId, setMeltId] = useState('');
@@ -505,12 +515,12 @@ const fetchStaffDirectory = async () => {
       // Create a reference to a new document inside a global "samples" collection
       const sampleData = {
         sampleId: sampleId.trim().toUpperCase(),
-        oreType: oreType,
+        oreType: selectedOre, // 👈 CHANGED THIS from oreType to selectedOre
         initialWeight: parseFloat(initialWeight),
-        company: companyName, // Multi-tenant link
-        loggedBy: fullName,    // Track which technician did the work
+        company: companyName, 
+        loggedBy: fullName,    
         createdAt: new Date().toISOString(),
-        status: "Pending Analysis" // Initial state for the pipeline
+        status: "Pending Analysis" 
       };
 
       // Add to Firestore
@@ -523,6 +533,8 @@ const fetchStaffDirectory = async () => {
       // Clear the input fields completely
       setSampleId('');
       setInitialWeight('');
+      setSelectedGroup('SULFIDES'); // 👈 RESETS DROPDOWN 1
+      setSelectedOre('');
       
       // Refresh the local list automatically so it appears immediately
       fetchMineralSamples();
@@ -890,25 +902,56 @@ const fetchStaffDirectory = async () => {
                 <TextInput style={styles.input} placeholder="Sample ID / Batch Code" value={sampleId} onChangeText={setSampleId} placeholderTextColor="#888" />
                 <TextInput style={styles.input} placeholder="Initial Weight (kg)" value={initialWeight} onChangeText={setInitialWeight} keyboardType="numeric" placeholderTextColor="#888" />
                 
-                <Text style={{ color: '#c8d4e6', marginBottom: 10, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Ore Classification:</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '90%', marginBottom: 20 }}>
-                  {['Copper', 'Gold', 'Zinc', 'Uranium'].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => setOreType(type)}
-                      style={{
-                        backgroundColor: oreType === type ? '#3498db' : '#232931',
-                        paddingVertical: 8,
-                        paddingHorizontal: 12,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: oreType === type ? '#3498db' : '#333'
-                      }}
-                    >
-                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>{type}</Text>
-                    </TouchableOpacity>
+                {/* 🪨 STEP 1: SELECT CORE ORE GROUP */}
+                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Select Ore Group:</Text>
+                <select 
+                  value={selectedGroup} 
+                  onChange={(e) => {
+                    const group = e.target.value;
+                    setSelectedGroup(group);
+                    // Automatically set the second dropdown to the first item of the new group
+                    setSelectedOre(ORE_DATABASE[group][0]);
+                  }}
+                  style={{
+                    width: '90%',
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: '#232931',
+                    color: '#fff',
+                    border: '1px solid #333',
+                    marginBottom: 15,
+                    fontSize: 14,
+                    outline: 'none'
+                  }}
+                >
+                  <option value="SULFIDES">Sulfides</option>
+                  <option value="OXIDES">Oxides</option>
+                  <option value="NATIVE">Native Elements</option>
+                  <option value="CARBONATES">Carbonates</option>
+                </select>
+
+                {/* 🔬 STEP 2: DYNAMIC SPECIFIC ORE SELECTOR */}
+                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Select Specific Ore / Classification:</Text>
+                <select 
+                  value={selectedOre} 
+                  onChange={(e) => setSelectedOre(e.target.value)}
+                  style={{
+                    width: '90%',
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: '#232931',
+                    color: '#fff',
+                    border: '1px solid #333',
+                    marginBottom: 20,
+                    fontSize: 14,
+                    outline: 'none'
+                  }}
+                >
+                  {/* Loop through the specific group dynamically */}
+                  {ORE_DATABASE[selectedGroup].map((ore, index) => (
+                    <option key={index} value={ore}>{ore}</option>
                   ))}
-                </View>
+                </select>
 
                 <TouchableOpacity style={styles.loginButton} onPress={logMineralSample}>
                   <Text style={styles.loginButtonText}>Commit Sample</Text>
@@ -924,7 +967,7 @@ const fetchStaffDirectory = async () => {
       </SafeAreaProvider>
     );
   }
-
+  
   if (screen === 'sample_directory') {
     return (
       <SafeAreaProvider>
