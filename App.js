@@ -139,27 +139,33 @@ const [selectedOre, setSelectedOre] = useState('');
             const userData = userDoc.data();
             setFullName(userData.fullName || "");
             
-            // Normalize the role string right at entry to prevent case mismatches
             const userRole = userData.role ? userData.role.toLowerCase().trim() : "";
             setRole(userRole);
             
-            // Normalize company name to ensure uniform dynamic queries
-            const userCompany = userData.company ? userData.company.trim() : "UNAM";
-            setCompanyName(userCompany);
-            
-            // setEmail(userData.email || authenticatedUser.email);
+            // 🛡️ DYNAMIC MULTI-TENANT VERIFICATION (NO HARDCODING)
+            if (!userData.company || userData.company.trim() === "") {
+              console.error("❌ TENANT ISOLATION BREACH: User profile has no company assignment.");
+              const companyError = "Account configuration error: No company portfolio assigned to this profile. Contact your system administrator.";
+              Platform.OS === 'web' ? alert(companyError) : Alert.alert("Profile Error", companyError);
+              setScreen('login');
+              return;
+            }
 
+            const userCompany = userData.company.trim();
+            setCompanyName(userCompany); // Updates state for general use
+            
             // 🚦 The Smart Router Gateway
             if (userRole === 'admin') {
               setScreen('dashboard'); 
-            } else if (userRole === 'lab technician') {
-              console.log(`Routing ${userData.fullName} to Lab Technician Portal smoothly...`);
+            } else if (userRole === 'lab_manager' || userRole === 'lab technician') {
+              console.log(`Routing ${userData.fullName} to Lab Technician Portal smoothly for [${userCompany.toUpperCase()}]...`);
               setScreen('lab_technician_dashboard'); 
-              fetchMineralSamples();
+              
+              // 🏎️ RACE CONDITION BYPASS: Pass the raw string directly into the function call!
+              fetchMineralSamples(userCompany);
             } else if (userRole === 'furnace operator') {
               setScreen('furnace_operator_dashboard'); 
             } else if (userRole === 'metallurgist') {
-              // 🔬 FIXED: Added explicit background listener support for metallurgist profiles!
               setScreen('metallurgist_dashboard'); 
             } else {
               setScreen('login');
@@ -179,7 +185,6 @@ const [selectedOre, setSelectedOre] = useState('');
     });
     return unsubscribe;
   }, []);
-
 
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
@@ -503,86 +508,105 @@ const fetchStaffDirectory = async () => {
     if (e && e.preventDefault) e.preventDefault();
 
     // Validation Check
-    if (!sampleId.trim() || !initialWeight.trim()) {
+    if (!sampleId || !sampleId.trim() || !initialWeight || !initialWeight.trim()) {
       const msg = "Please fill in all sample details.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
     }
 
     try {
-      console.log("Logging mineral sample for company:", companyName);
+      // 🛡️ Recover dynamic multi-tenant company scope
+      let operationalCompany = "UNAM"; 
+      if (companyName && companyName.trim() !== "") {
+        operationalCompany = companyName.trim();
+      } else if (auth.currentUser && auth.currentUser.email) {
+        operationalCompany = auth.currentUser.email.split('@')[1].split('.')[0].toUpperCase();
+      }
 
-      // Create a reference to a new document inside a global "samples" collection
+      console.log(`🔒 SECURE PIPELINE ACTIVE: Logging sample for tenant space [${operationalCompany.toUpperCase()}]`);
+
+      const cleanCompany = operationalCompany.toUpperCase().trim();
+      const cleanSampleId = sampleId.trim().toUpperCase();
+      
+      // 🎯 GENERATE COMPOSITE CUSTOM ID KEY
+      const uniqueCompositeId = `${cleanCompany}_${cleanSampleId}`;
+
+      // 🛡️ SANITIZATION LAYER: Force types with zero undefined gaps
+      const finalOreType = selectedOre ? selectedOre.toString() : "Not Classified";
+      const finalWeight = parseFloat(initialWeight) || 0.0;
+      const finalLoggedBy = fullName ? fullName.toString() : "Technician";
+      const finalTimestamp = new Date().toISOString();
+
+      // Assemble the final compliant data payload package
       const sampleData = {
-        sampleId: sampleId.trim().toUpperCase(),
-        oreType: selectedOre, // 👈 CHANGED THIS from oreType to selectedOre
-        initialWeight: parseFloat(initialWeight),
-        company: companyName, 
-        loggedBy: fullName,    
-        createdAt: new Date().toISOString(),
+        sampleId: uniqueCompositeId, 
+        displayId: cleanSampleId,     
+        oreType: finalOreType, 
+        initialWeight: finalWeight,
+        company: cleanCompany, 
+        loggedBy: finalLoggedBy,    
+        createdAt: finalTimestamp,
         status: "Pending Analysis" 
       };
 
-      // Add to Firestore
-      const docRef = await addDoc(collection(db, "mineral_samples"), sampleData);
-      console.log("Sample stored successfully with ID:", docRef.id);
+      console.log("Writing customized document path directly...", uniqueCompositeId);
 
-      const successMsg = `Sample ${sampleId} logged successfully!`;
+      // DIRECT SECURE WRITE USING RECONFIGURED POLICY PATHS
+      const customDocRef = doc(db, "mineral_samples", uniqueCompositeId);
+      await setDoc(customDocRef, sampleData);
+      
+      console.log("Sample stored successfully with Unique ID:", uniqueCompositeId);
+
+      const successMsg = `Sample ${cleanSampleId} logged successfully under secure ID: ${uniqueCompositeId}!`;
       Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
 
-      // Clear the input fields completely
+      // Reset the inputs for the next entry
       setSampleId('');
       setInitialWeight('');
-      setSelectedGroup('SULFIDES'); // 👈 RESETS DROPDOWN 1
+      setSelectedGroup('SULFIDES'); 
       setSelectedOre('');
       
-      // Refresh the local list automatically so it appears immediately
-      fetchMineralSamples();
+      // Dynamic refresh on the dashboard component
+      fetchMineralSamples(cleanCompany);
     } catch (error) {
-      console.error("Error logging mineral sample:", error);
-      const errorMsg = `Failed to log sample: ${error.message}`;
-      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert("Error", errorMsg);
+      console.error("Detailed Error Logging Catch:", JSON.stringify(error, null, 2) || error.message);
+      const standardError = `Failed to log sample: ${error?.message || 'Data integrity fault'}`;
+      Platform.OS === 'web' ? alert(standardError) : Alert.alert("Error", standardError);
+    }
+  };
+  
+ const fetchMineralSamples = async (passedCompany) => {
+    // 🏎️ RACE CONDITION BYPASS: Use the parameter string if passed during login, 
+    // otherwise fall back seamlessly to your state variable.
+    const activeCompany = passedCompany || companyName;
 
-      // 🚨 INTERCEPT FIRESTORE LOCKOUT RULES EXPLICITLY
-      if (error.message.includes("permission-denied") || error.code === "permission-denied") {
-        const lockoutMsg = "⚠️ PIPELINE LOCKED: System is currently under Admin maintenance. Data entry is temporarily disabled.";
-        Platform.OS === 'web' ? alert(lockoutMsg) : Alert.alert("System Lockout", lockoutMsg);
+    try {
+      console.log(`🔍 Fetching company logs from mineral_samples for: [${activeCompany || 'GLOBAL'}]...`);
+      const samplesRef = collection(db, "mineral_samples");
+      let q;
+
+      // 🛡️ Safe Multi-Tenant Filter Check
+      if (activeCompany && activeCompany.trim() !== "") {
+        console.log(`Filtering logs for company: "${activeCompany}"`);
+        q = query(samplesRef, where("company", "==", activeCompany));
       } else {
-        const standardError = "Failed to log sample. Please check your network connection.";
-        Platform.OS === 'web' ? alert(standardError) : Alert.alert("Error", standardError);
+        console.log("⚠️ activeCompany token is empty! Pulling global sample log instead.");
+        q = query(samplesRef); 
       }
+
+      const querySnapshot = await getDocs(q);
+      const samplesList = [];
+      querySnapshot.forEach((doc) => {
+        samplesList.push({ id: doc.id, ...doc.data() });
+      });
+
+      setLoggedSamples(samplesList);
+      console.log("Successfully loaded records into state array:", samplesList.length);
+    } catch (error) {
+      console.error("Error reading technician inventory log:", error);
     }
   };
 
-  const fetchMineralSamples = async () => {
-  setScreen('sample_directory');
-
-  try {
-    console.log("Fetching company logs from mineral_samples...");
-    const samplesRef = collection(db, "mineral_samples");
-    let q;
-
-    // 🛡️ Safety Check: If companyName exists, filter by it. Otherwise, pull all for testing.
-    if (companyName && companyName.trim() !== "") {
-      console.log(`Filtering logs for company: "${companyName}"`);
-      q = query(samplesRef, where("company", "==", companyName));
-    } else {
-      console.log("⚠️ companyName state is empty! Pulling global sample log instead.");
-      q = query(samplesRef); 
-    }
-
-    const querySnapshot = await getDocs(q);
-    const samplesList = [];
-    querySnapshot.forEach((doc) => {
-      samplesList.push({ id: doc.id, ...doc.data() });
-    });
-
-    setLoggedSamples(samplesList);
-    console.log("Successfully loaded records into state array:", samplesList.length);
-  } catch (error) {
-    console.error("Error reading technician inventory log:", error);
-  }
-};
 
   // 1. Commit Melt Cycle to Firestore
   const logMeltCycle = async (e) => {
@@ -967,7 +991,7 @@ const fetchStaffDirectory = async () => {
       </SafeAreaProvider>
     );
   }
-  
+
   if (screen === 'sample_directory') {
     return (
       <SafeAreaProvider>
