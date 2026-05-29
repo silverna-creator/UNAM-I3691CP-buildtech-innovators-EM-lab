@@ -326,10 +326,17 @@ export default function App() {
       }
 
     } catch (error) {
-      console.error("Signup Error:", error.message);
-      const errorMsg = `Signup Error: ${error.message}`;
-      Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Signup Error', errorMsg);
-    }
+    // 🚨 THIS WILL PRINT THE EXACT HIDDEN ERROR CODE IN YOUR NPX TERMINAL
+    console.log("====================================");
+    console.log("🛑 REGISTRATION BREAKDOWN DIAGNOSTIC:");
+    console.log("CODE:", error.code);
+    console.log("MESSAGE:", error.message);
+    console.log("CURRENT ADMIN COMPANY STATE:", companyName); 
+    console.log("====================================");
+
+    const errorMsg = `Registration Failed: ${error.message}`;
+    Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Error', errorMsg);
+  }
   };
 
   const handleForgotPassword = () => {
