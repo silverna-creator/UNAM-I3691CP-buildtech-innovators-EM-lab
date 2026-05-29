@@ -1501,18 +1501,24 @@ const fetchStaffDirectory = async () => {
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Quality Assurance & Analysis</Text>
               
-              {/* ✅ Wrapped in an arrow function to prevent forwarding layout events */}
+              {/* 🧪 BUTTON 1: ANALYZE PENDING SAMPLES */}
               <TouchableOpacity 
                 style={styles.roleButton} 
-                onPress={() => fetchSamplesForAnalysis(companyName)}
+                onPress={async () => {
+                  await fetchSamplesForAnalysis(companyName);
+                  setScreen('analysis_queue');
+                }}
               >
                 <Text style={styles.buttonText}>🧪 Analyze Pending Samples</Text>
               </TouchableOpacity>
               
-              {/* ✅ Wrapped in an arrow function to keep database paths clean */}
+              {/* 📜 BUTTON 2: VIEW ASSAY HISTORY */}
               <TouchableOpacity 
                 style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
-                onPress={() => fetchAssayHistory(companyName)} 
+                onPress={async () => {
+                  await fetchAssayHistory(companyName);
+                  setScreen('assay_history');
+                }} 
               >
                 <Text style={styles.buttonText}>📜 View Assay History</Text>
               </TouchableOpacity>
@@ -1529,7 +1535,7 @@ const fetchStaffDirectory = async () => {
       </SafeAreaProvider>
     );
   }
-  
+
   // 👤 5. UNIFORM PROFILE INTERFACE
   if (screen === 'profile') {
     return (
