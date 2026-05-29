@@ -25,7 +25,7 @@ import {
   updatePassword, browserLocalPersistence
 } from "firebase/auth";
 
-import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp, deleteDoc, arrayUnion } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- CONFIGURATION ---
@@ -673,6 +673,64 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
     }
   };
 
+  const fetchApprovedMeltQueue = async () => {
+  try {
+    const samplesRef = collection(db, "mineral_samples");
+    // 🛡️ Only fetch batches approved by the metallurgist for this company
+    const q = query(
+      samplesRef, 
+      where("company", "==", companyName), 
+      where("status", "==", "Approved")
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const approvedList = [];
+    querySnapshot.forEach((doc) => {
+      approvedList.push({ id: doc.id, ...doc.data() });
+    });
+    
+    setFurnaceLogs(approvedList);
+    setScreen('view_approved_melts');
+  } catch (error) {
+    console.error("Error fetching melt queue:", error);
+  }
+};
+
+const updateFurnaceTelemetry = async () => {
+  if (!currentTempInput.trim()) return;
+
+  try {
+    const docRef = doc(db, "mineral_samples", selectedMeltSample.id);
+    
+    // Create a time-stamped log entry object
+    const newLogEntry = {
+      temperature: parseFloat(currentTempInput),
+      loggedAt: new Date().toISOString(),
+      durationSoFar: cycleDurationInput || "Not Specified"
+    };
+
+    await updateDoc(docRef, {
+      // 📈 Append to the history array smoothly
+      temperatureLogs: arrayUnion(newLogEntry),
+      currentTemperature: parseFloat(currentTempInput),
+      lastFurnaceUpdate: new Date().toISOString(),
+      status: "In Melt Cycle" // Changes status so technicians know it's cooking!
+    });
+
+    // Refresh our local selection state so the UI updates live
+    setSelectedMeltSample(prev => ({
+      ...prev,
+      temperatureLogs: prev.temperatureLogs ? [...prev.temperatureLogs, newLogEntry] : [newLogEntry],
+      currentTemperature: parseFloat(currentTempInput)
+    }));
+
+    setCurrentTempInput('');
+    alert("🔥 Furnace telemetry log updated successfully!");
+  } catch (error) {
+    console.error("Error writing furnace telemetry:", error);
+  }
+};
+
   const fetchSamplesForAnalysis = async () => {
     // 🔥 Force screen transition first so the UI never feels frozen
     setScreen('analysis_queue');
@@ -1161,6 +1219,119 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
     );
   }
 
+  // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
+  if (screen === 'view_approved_melts') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Certified Melt Queue</Text>
+            <Text style={styles.subtitle}>Select an Approved Ore Batch to Smelt</Text>
+
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              {/* 🟢 FIXED: Checking furnaceLogs here instead of approvedSamples */}
+              {furnaceLogs.length === 0 ? (
+                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
+                  📭 No certified assay batches are currently waiting to be melted.
+                </Text>
+              ) : (
+                /* 🟢 FIXED: Mapping furnaceLogs here instead of approvedSamples */
+                furnaceLogs.map((sample) => (
+                  <View key={sample.id} style={[styles.roleBox, { borderColor: '#2ecc71', borderWidth: 1, marginBottom: 10, padding: 15 }]}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
+                      Sample ID: {sample.sampleId || sample.displayId}
+                    </Text>
+                    <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
+                      Ore Type: {sample.oreType} | Certified Purity: {sample.purityGrade}
+                    </Text>
+                    
+                    <TouchableOpacity 
+                      style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
+                      onPress={() => {
+                        // Save the selected sample's details into your states
+                        setMeltId(sample.id); // Firestore Doc ID
+                        setFurnaceTemp(sample.currentTemperature?.toString() || '');
+                        setCycleDuration(sample.cycleDurationTime || '');
+                        setScreen('log_melt_cycle');
+                      }}
+                    >
+                      <Text style={styles.buttonText}>🔥 Initialize Melt Cycle</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('furnace_operator_dashboard')}>
+              <Text style={styles.buttonText}>Back to Dashboard</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+if (screen === 'log_melt_cycle' && selectedMeltSample) {
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+        <SafeAreaView style={styles.container}>
+          <Text style={styles.title}>Furnace Control Room</Text>
+          <Text style={styles.subtitle}>Melt ID: {selectedMeltSample.sampleId}</Text>
+
+          {/* 🌡️ Dynamic Temperature Inputs */}
+          <View style={styles.roleBox}>
+            <Text style={styles.roleTitle}>Update Telemetry Log</Text>
+            
+            <TextInput
+              style={{ backgroundColor: '#fff', padding: 10, borderRadius: 5, marginBottom: 10 }}
+              placeholder="Enter Current Temperature (°C)"
+              keyboardType="numeric"
+              value={currentTempInput}
+              onChangeText={setCurrentTempInput}
+            />
+            <TextInput
+              style={{ backgroundColor: '#fff', padding: 10, borderRadius: 5, marginBottom: 10 }}
+              placeholder="Cycle Duration/Time Elapsed (e.g., 45 mins)"
+              value={cycleDurationInput}
+              onChangeText={setCycleDurationInput}
+            />
+
+            <TouchableOpacity style={[styles.button, { backgroundColor: '#e67e22' }]} onPress={updateFurnaceTelemetry}>
+              <Text style={styles.buttonText}>📈 Submit Telemetry Update</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 📊 Live Historical Log Display */}
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginTop: 15, alignSelf: 'flex-start' }}>
+            Historical Melt Logs:
+          </Text>
+          <ScrollView style={{ flex: 1, width: '100%', marginTop: 5, marginBottom: 15 }}>
+            {(!selectedMeltSample.temperatureLogs || selectedMeltSample.temperatureLogs.length === 0) ? (
+              <Text style={{ color: '#7f8c8d', fontStyle: 'italic' }}>No heat metrics logged yet for this cycle.</Text>
+            ) : (
+              selectedMeltSample.temperatureLogs.map((log, index) => (
+                <View key={index} style={{ backgroundColor: '#2e4053', padding: 10, borderRadius: 5, marginBottom: 5 }}>
+                  <Text style={{ color: '#fff', fontSize: 14 }}>
+                    🔥 **{log.temperature}°C** at {log.durationSoFar}
+                  </Text>
+                  <Text style={{ color: '#bdc3c7', fontSize: 11 }}>
+                    Timestamp: {new Date(log.loggedAt).toLocaleTimeString()}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+
+          <TouchableOpacity style={styles.button} onPress={() => setScreen('view_approved_melts')}>
+            <Text style={styles.buttonText}>Return to Queue</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+    </SafeAreaProvider>
+  );
+}
+
   if (screen === 'furnace_directory') {
     return (
       <SafeAreaProvider>
@@ -1562,6 +1733,9 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
               <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_melt_cycle')}>
                 <Text style={styles.buttonText}>🌋 Log Melt Cycle Data</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.roleButton} onPress={fetchApprovedMeltQueue}>
+  <Text style={styles.buttonText}>📋 View Certified Batches for Melting</Text>
+</TouchableOpacity>
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchFurnaceOperations}>
                 <Text style={styles.buttonText}>📊 Monitor Furnace Status</Text>
               </TouchableOpacity>
