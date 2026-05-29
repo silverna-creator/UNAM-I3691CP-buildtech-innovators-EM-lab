@@ -580,7 +580,7 @@ const fetchStaffDirectory = async () => {
  const fetchMineralSamples = async (passedCompany) => {
     // 🏎️ RACE CONDITION BYPASS: Use the parameter string if passed during login, 
     // otherwise fall back seamlessly to your state variable.
-    const activeCompany = passedCompany || companyName;
+    const activeCompany = (passedCompany && typeof passedCompany === 'string') ? passedCompany : companyName;
 
     try {
       console.log(`🔍 Fetching company logs from mineral_samples for: [${activeCompany || 'GLOBAL'}]...`);
@@ -603,6 +603,7 @@ const fetchStaffDirectory = async () => {
       });
 
       setLoggedSamples(samplesList);
+      setScreen('view_samples');
       console.log("Successfully loaded records into state array:", samplesList.length);
     } catch (error) {
       console.error("Error reading technician inventory log:", error);
@@ -1381,6 +1382,88 @@ const fetchStaffDirectory = async () => {
       </SafeAreaProvider>
     );
   }
+
+  // --- 📋 LAB TECHNICIAN SAMPLE VIEW PORTAL ---
+  if (screen === 'view_samples') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Sample Registry</Text>
+            <Text style={styles.subtitle}>Master Ore Logging & Assay Tracking</Text>
+
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              {loggedSamples.length === 0 ? (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Text style={{ color: '#fff', textAlign: 'center', fontSize: 16, marginTop: 20 }}>
+                    📭 No registered samples found in the laboratory ledger.
+                  </Text>
+                </View>
+              ) : (
+                loggedSamples.map((sample) => {
+                  // Determine status style badges dynamically based on metallurgical outcomes
+                  let statusColor = '#e67e22'; // Default Orange for Pending Analysis
+                  let statusLabel = '⚠️ PENDING ANALYSIS';
+                  
+                  if (sample.status === 'Approved') {
+                    statusColor = '#2ecc71'; // Green for Certified Pass
+                    statusLabel = '🟢 ASSAY CERTIFIED';
+                  } else if (sample.status === 'Declined') {
+                    statusColor = '#e74c3c'; // Red for Declined/Rejected
+                    statusLabel = '🔴 BATCH DECLINED';
+                  }
+
+                  return (
+                    <View 
+                      key={sample.id} 
+                      style={[
+                        styles.roleBox, 
+                        { borderColor: statusColor, borderWidth: 1, marginBottom: 10, padding: 15 }
+                      ]}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
+                        Batch ID: {sample.sampleId || sample.displayId || "Unknown Lot"}
+                      </Text>
+                      
+                      <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
+                        Ore Matrix: {sample.oreType} | ⚖️ Initial Mass: {sample.initialWeight} kg
+                      </Text>
+
+                      {/* Dynamic Status Display */}
+                      <Text style={{ color: statusColor, fontWeight: 'bold', marginTop: 6, fontSize: 13 }}>
+                        {statusLabel}
+                      </Text>
+
+                      {/* Display context metrics based on what the metallurgist did */}
+                      {sample.status === 'Approved' && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 4, fontWeight: '500' }}>
+                          💎 Certified Purity: {sample.purityGrade}
+                        </Text>
+                      )}
+                      
+                      {sample.status === 'Declined' && (
+                        <Text style={{ color: '#ff8a80', fontSize: 13, marginTop: 4, fontStyle: 'italic' }}>
+                          ❌ Rejection Reason: {sample.rejectionReason}
+                        </Text>
+                      )}
+
+                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6 }}>
+                        Logged By: {sample.loggedBy || "Lab Technician"}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('lab_technician_dashboard')}>
+              <Text style={styles.buttonText}>Return to Dashboard</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
   
   // --- MAIN LAYOUT GATE (DASHBOARD, PROFILE, LOGIN) ---
   const userRole = role ? role.toLowerCase().trim() : '';
@@ -1444,7 +1527,8 @@ const fetchStaffDirectory = async () => {
               <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_sample')}>
                 <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchMineralSamples}>
+              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => fetchMineralSamples()} 
+>
                 <Text style={styles.buttonText}>📋 View Logged Samples</Text>
               </TouchableOpacity>
             </View>
