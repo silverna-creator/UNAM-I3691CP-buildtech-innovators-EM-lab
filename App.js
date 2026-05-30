@@ -159,6 +159,8 @@ const [selectedOre, setSelectedOre] = useState('');
             // 🚦 The Smart Router Gateway
             if (userRole === 'admin') {
               setScreen('dashboard'); 
+              // 🟢 DROPPED HERE: Pre-load telemetry data cleanly for the admin dashboard screen
+              fetchLiveFurnaceTelemetry();
             } else if (userRole === 'lab_manager' || userRole === 'lab technician') {
               console.log(`Routing ${userData.fullName} to Lab Technician Portal smoothly for [${userCompany.toUpperCase()}]...`);
               setScreen('lab_technician_dashboard'); 
@@ -730,6 +732,29 @@ const updateFurnaceTelemetry = async () => {
     console.error("Error writing furnace telemetry:", error);
   }
 };
+
+const fetchLiveFurnaceTelemetry = async () => {
+    try {
+      const samplesRef = collection(db, "mineral_samples");
+      // Query for samples that are currently processing inside the furnace
+      const q = query(
+        samplesRef, 
+        where("company", "==", companyName), 
+        where("status", "==", "In Melt Cycle")
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const activeMelts = [];
+      querySnapshot.forEach((doc) => {
+        activeMelts.push({ id: doc.id, ...doc.data() });
+      });
+      
+      // Save them into your existing array state variable
+      setFurnaceLogs(activeMelts);
+    } catch (error) {
+      console.error("Error fetching live telemetry for admin:", error);
+    }
+  };
 
   const fetchSamplesForAnalysis = async () => {
     // 🔥 Force screen transition first so the UI never feels frozen
@@ -1651,8 +1676,56 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
             <Text style={styles.title}>EM-Lab</Text>
             <Text style={styles.subtitle}>{companyName} - ADMIN PANEL</Text>
             
+            {/* 🌡️ LIVE REAL-TIME FURNACE MONITORING SUB-PANEL */}
+            <View style={[styles.roleBox, { borderColor: '#f1c40f', borderWidth: 1, marginBottom: 15 }]}>
+              <Text style={{ color: '#f1c40f', fontSize: 16, fontWeight: 'bold', marginBottom: 8 }}>
+                📡 Live Furnace Telemetry Feed
+              </Text>
+              
+              {furnaceLogs.length === 0 ? (
+                <Text style={{ color: '#aaa', fontSize: 13, fontStyle: 'italic' }}>
+                  🟢 All smelting systems clear. No active melt cycles currently running.
+                </Text>
+              ) : (
+                furnaceLogs.map((melt) => {
+                  const currentTemp = melt.currentTemperature || 0;
+                  const maxAllowed = parseFloat(maxFurnaceTemp) || 1200;
+                  const isOverheated = currentTemp > maxAllowed;
+
+                  return (
+                    <View 
+                      key={melt.id} 
+                      style={{ 
+                        backgroundColor: isOverheated ? '#7b1113' : '#232931', 
+                        padding: 10, 
+                        borderRadius: 6, 
+                        marginTop: 5,
+                        borderColor: isOverheated ? '#e74c3c' : 'transparent',
+                        borderWidth: 1
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>
+                          ID: {melt.sampleId || "Active Melt"}
+                        </Text>
+                        <Text style={{ color: isOverheated ? '#ff8d8f' : '#2ecc71', fontWeight: 'bold', fontSize: 13 }}>
+                          {currentTemp}°C / {maxAllowed}°C Limit
+                        </Text>
+                      </View>
+                      
+                      {isOverheated && (
+                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold', marginTop: 4, textTransform: 'uppercase' }}>
+                          ⚠️ Critical Exceedance! Structural Breach Risk. Deactivate system immediately.
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
             <View style={styles.roleBox}>
-              <Text style={styles.roleTitle}>Admin Dashboard</Text>
+              <Text style={styles.roleTitle}>Admin Controls</Text>
               
               <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('signup')}>
                 <Text style={styles.buttonText}>Register New Staff</Text>
