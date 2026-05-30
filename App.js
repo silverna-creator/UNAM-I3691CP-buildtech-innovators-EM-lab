@@ -407,6 +407,49 @@ const [selectedOre, setSelectedOre] = useState('');
     }
   };
 
+  const LaboratoryLockdownScreen = ({ onCheckStatus }) => (
+  <SafeAreaProvider>
+    <View style={{ flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', alignItems: 'center' }}>
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={[styles.title, { color: '#e74c3c', fontSize: 32 }]}>⚠️ SYSTEM LOCKDOWN</Text>
+        <Text style={[styles.subtitle, { textAlign: 'center', marginTop: 10, color: '#c8d4e6' }]}>
+          The Laboratory Administrator has temporarily paused operations or triggered an emergency safety override.
+        </Text>
+        
+        <View style={[styles.roleBox, { borderColor: '#e74c3c', borderWidth: 1, marginTop: 20, padding: 20, alignItems: 'center' }]}>
+          <Text style={{ color: '#fff', textAlign: 'center', fontSize: 14, lineHeight: 20 }}>
+            All incoming mineral sample logging, assay certifications, and furnace melt cycles are strictly frozen until system clearance is restored.
+          </Text>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: '#2ecc71', marginTop: 30 }]} 
+          onPress={onCheckStatus}
+        >
+          <Text style={styles.buttonText}>🔄 Re-check System Status</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    </View>
+  </SafeAreaProvider>
+);
+
+const fetchSystemSettingsStatus = async () => {
+    try {
+      const docRef = doc(db, "system_status", "lab_configuration"); // Or wherever your admin saves it
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setIsLabActive(docSnap.data().isLabActive);
+        if (docSnap.data().isLabActive) {
+          alert("🟢 System cleared! Operations have resumed.");
+        } else {
+          alert("🔒 System remains locked down by administrative order.");
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing lab status:", error);
+    }
+  };
+
   const handleDeleteStaff = async (staffId, staffName) => {
     // 🛡️ Always display a critical confirmation window before wiping access profiles
     const confirmAction = window.confirm(`CRITICAL SECURITY WARNING:\nAre you sure you want to permanently revoke access for ${staffName}? They will be instantly frozen out of the company platform.`);
@@ -759,7 +802,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
       console.error("Error fetching live telemetry from furnace_operations:", error);
     }
   };
-  
+
   const fetchSamplesForAnalysis = async () => {
     // 🔥 Force screen transition first so the UI never feels frozen
     setScreen('analysis_queue');
@@ -1041,6 +1084,10 @@ const fetchLiveFurnaceTelemetry = async (company) => {
     );
   }
 
+  if ((screen === 'lab_technician_dashboard' || screen === 'log_sample' || screen === 'sample_directory') && !isLabActive) {
+    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} />;
+  }
+
   if (screen === 'log_sample') {
     return (
       <SafeAreaProvider>
@@ -1248,6 +1295,10 @@ const fetchLiveFurnaceTelemetry = async (company) => {
     );
   }
 
+  if ((screen === 'furnace_operator_dashboard' || screen === 'view_approved_melts' || screen === 'log_melt_cycle') && !isLabActive) {
+    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} />;
+  }
+
   // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
   if (screen === 'view_approved_melts') {
     return (
@@ -1435,6 +1486,9 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
     );
   }
 
+  if ((screen === 'metallurgist_dashboard') && !isLabActive) {
+    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} />;
+  }
   
   // --- 🧪 METALLURGIST ACTIVE ASSAY QUEUE SCREEN ---
   if (screen === 'analysis_queue') {
