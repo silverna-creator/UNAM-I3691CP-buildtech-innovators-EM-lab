@@ -1730,12 +1730,13 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
 
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Furnace Operations</Text>
-              <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_melt_cycle')}>
-                <Text style={styles.buttonText}>🌋 Log Melt Cycle Data</Text>
-              </TouchableOpacity>
+              
+              {/* 🟢 Keep this: It pulls the verified queue from the metallurgist */}
               <TouchableOpacity style={styles.roleButton} onPress={fetchApprovedMeltQueue}>
-  <Text style={styles.buttonText}>📋 View Certified Batches for Melting</Text>
-</TouchableOpacity>
+                <Text style={styles.buttonText}>📋 View Certified Batches for Melting</Text>
+              </TouchableOpacity>
+
+              {/* 🟢 Keep this: For viewing active furnace cycles */}
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchFurnaceOperations}>
                 <Text style={styles.buttonText}>📊 Monitor Furnace Status</Text>
               </TouchableOpacity>
