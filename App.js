@@ -128,8 +128,8 @@ const [selectedOre, setSelectedOre] = useState('');
 
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const [techTestType, setTechTestType] = useState('Moisture Test'); // Holds the chosen test
-const [techBaseValue, setTechBaseValue] = useState('');            // Holds the typed measurement number
+  const [moistureValue, setMoistureValue] = useState('');     // For moisture test %
+const [flotationValue, setFlotationValue] = useState('');   // For flotation prep check kg or density
 
 
  useEffect(() => {
@@ -587,9 +587,15 @@ const fetchStaffDirectory = async () => {
   const logMineralSample = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
-    // Validation Check
-    if (!sampleId || !sampleId.trim() || !initialWeight || !initialWeight.trim() || !techBaseValue || !techBaseValue.trim()) {
-      const msg = "Please fill in all sample details, including the physical test base value.";
+    // Validation Check: Ensure core details are filled, and AT LEAST one test reading is provided
+    if (!sampleId || !sampleId.trim() || !initialWeight || !initialWeight.trim()) {
+      const msg = "Please fill in the Sample ID and Initial Weight.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+
+    if (!moistureValue.trim() && !flotationValue.trim()) {
+      const msg = "Please enter at least one test result (Moisture or Flotation) before committing.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
     }
@@ -607,21 +613,19 @@ const fetchStaffDirectory = async () => {
 
       const cleanCompany = operationalCompany.toUpperCase().trim();
       const cleanSampleId = sampleId.trim().toUpperCase();
-      
-      // 🎯 GENERATE COMPOSITE CUSTOM ID KEY
       const uniqueCompositeId = `${cleanCompany}_${cleanSampleId}`;
 
-      // 🛡️ SANITIZATION LAYER: Force types with zero undefined gaps
+      // 🛡️ SANITIZATION LAYER
       const finalOreType = selectedOre ? selectedOre.toString() : "Not Classified";
       const finalWeight = parseFloat(initialWeight) || 0.0;
       const finalLoggedBy = fullName ? fullName.toString() : "Technician";
       const finalTimestamp = new Date().toISOString();
 
-      // 2️⃣ NEW SANITIZATION PARAMS: Clean up the new dropdown and text values
-      const finalTestType = techTestType ? techTestType.toString() : "Moisture Test";
-      const finalBaseValue = parseFloat(techBaseValue) || 0.0;
+      // Convert inputs to numbers if they exist, otherwise mark as N/A or null
+      const finalMoisture = moistureValue.trim() ? parseFloat(moistureValue) : null;
+      const finalFlotation = flotationValue.trim() ? parseFloat(flotationValue) : null;
 
-      // Assemble the final compliant data payload package
+      // Assemble a single unified sample payload package
       const sampleData = {
         sampleId: uniqueCompositeId, 
         displayId: cleanSampleId,     
@@ -631,35 +635,29 @@ const fetchStaffDirectory = async () => {
         loggedBy: finalLoggedBy,    
         createdAt: finalTimestamp,
         status: "Pending Analysis",
-        // 3️⃣ NEW PAYLOAD PACKS: Saving the fields safely to the document object
-        testType: finalTestType,   // Saves "Moisture Test" or "Flotation Prep Check"
-        baseValue: finalBaseValue  // Saves the input number (e.g., 5.4)
+        
+        // Both tests saved clearly inside the SAME sample record!
+        moistureTestResult: finalMoisture, 
+        flotationPrepResult: finalFlotation
       };
 
-      console.log("Writing customized document path directly...", uniqueCompositeId);
-
-      // DIRECT SECURE WRITE USING RECONFIGURED POLICY PATHS
       const customDocRef = doc(db, "mineral_samples", uniqueCompositeId);
       await setDoc(customDocRef, sampleData);
       
-      console.log("Sample stored successfully with Unique ID:", uniqueCompositeId);
-
-      const successMsg = `Sample ${cleanSampleId} logged successfully under secure ID: ${uniqueCompositeId}!`;
+      const successMsg = `Sample ${cleanSampleId} logged successfully with active test metrics!`;
       Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
 
-      // Reset the inputs for the next entry
+      // Reset all inputs cleanly
       setSampleId('');
       setInitialWeight('');
+      setMoistureValue('');
+      setFlotationValue('');
       setSelectedGroup('SULFIDES'); 
       setSelectedOre('');
-
-      // 4️⃣ NEW FORM RESET: Clears out the base value field so it's ready for the next sample
-      setTechBaseValue('');
       
-      // Dynamic refresh on the dashboard component
       fetchMineralSamples(cleanCompany);
     } catch (error) {
-      console.error("Detailed Error Logging Catch:", JSON.stringify(error, null, 2) || error.message);
+      console.error("Detailed Error Logging Catch:", error);
       const standardError = `Failed to log sample: ${error?.message || 'Data integrity fault'}`;
       Platform.OS === 'web' ? alert(standardError) : Alert.alert("Error", standardError);
     }
@@ -1195,36 +1193,28 @@ const fetchLiveFurnaceTelemetry = async (company) => {
                   ))}
                 </select>
 
-                {/* 📋 NEW STEP: SELECT TEST TYPE */}
-                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Select Test Type:</Text>
-                <select 
-                  value={techTestType} 
-                  onChange={(e) => setTechTestType(e.target.value)}
-                  style={{
-                    width: '90%',
-                    padding: 12,
-                    borderRadius: 8,
-                    backgroundColor: '#232931',
-                    color: '#fff',
-                    border: '1px solid #333',
-                    marginBottom: 15,
-                    fontSize: 14,
-                    outline: 'none'
-                  }}
-                >
-                  <option value="Moisture Test">Moisture Test</option>
-                  <option value="Flotation Prep Check">Flotation Prep Check</option>
-                </select>
+                <View style={{ width: '90%', height: 1, backgroundColor: '#2E2E4A', marginVertical: 10 }} />
 
-                {/* 🧪 NEW STEP: ENTER THE BASE VALUE */}
-                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Enter Physical Base Value (% or kg):</Text>
+                {/* 🧪 MOISTURE TEST FIELD */}
+                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start' }}>Moisture Test Value (Optional %):</Text>
                 <TextInput 
                   style={styles.input} 
-                  placeholder="e.g., 5.4" 
-                  value={techBaseValue} 
-                  onChangeText={setTechBaseValue} 
+                  placeholder="e.g., 5.4 (Leave blank if skipped)" 
+                  value={moistureValue} 
+                  onChangeText={setMoistureValue} 
                   keyboardType="numeric" 
-                  placeholderTextColor="#888" 
+                  placeholderTextColor="#555" 
+                />
+
+                {/* 🧪 FLOTATION PREP FIELD */}
+                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start' }}>Flotation Prep Mass (Optional kg):</Text>
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="e.g., 2.1 (Leave blank if skipped)" 
+                  value={flotationValue} 
+                  onChangeText={setFlotationValue} 
+                  keyboardType="numeric" 
+                  placeholderTextColor="#555" 
                 />
 
                 <TouchableOpacity style={styles.loginButton} onPress={logMineralSample}>
@@ -1285,6 +1275,97 @@ const fetchLiveFurnaceTelemetry = async (company) => {
             <TouchableOpacity style={styles.button} onPress={() => setScreen('lab_technician_dashboard')}>
               <Text style={styles.buttonText}>Back to Dashboard</Text>
             </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (screen === 'view_sample_details' && selectedSample) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+              <Text style={styles.title}>EM-Lab</Text>
+              <Text style={styles.subtitle}>Sample Audit Log Detail</Text>
+
+              {/* 📋 CORE SAMPLE DATA CARD */}
+              <View style={{ width: '95%', backgroundColor: '#232931', padding: 15, borderRadius: 10, marginBottom: 15, alignSelf: 'center', borderLeftWidth: 4, borderLeftColor: '#00adb5' }}>
+                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>System Composite ID</Text>
+                <Text style={{ color: '#fff', fontSize: 15, fontWeight: 'bold', marginBottom: 10 }}>{selectedSample.sampleId}</Text>
+
+                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>Display Batch Code</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 10 }}>{selectedSample.displayId}</Text>
+
+                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>Initial Weight</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 10 }}>{selectedSample.initialWeight} kg</Text>
+
+                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>Ore Classification Status</Text>
+                <Text style={{ 
+                  color: selectedSample.oreType === 'Not Classified' ? '#FF6B6B' : '#4E9F3D', 
+                  fontSize: 16, 
+                  fontWeight: 'bold',
+                  marginBottom: 5 
+                }}>
+                  {selectedSample.oreType}
+                </Text>
+              </View>
+
+              {/* 📊 PHYSICAL METRICS TELEMETRY FIELD */}
+              <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: '700', marginTop: 5, marginBottom: 10, alignSelf: 'flex-start', marginLeft: '5%' }}>
+                Preliminary Physical Test Data
+              </Text>
+
+              {/* Moisture Content Display */}
+              <View style={{ width: '95%', backgroundColor: '#232931', padding: 12, borderRadius: 8, marginBottom: 10, alignSelf: 'center' }}>
+                <Text style={{ color: '#888', fontSize: 12 }}>Moisture Content Reading:</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginTop: 2 }}>
+                  {selectedSample.moistureTestResult !== null && selectedSample.moistureTestResult !== undefined
+                    ? `${selectedSample.moistureTestResult} %`
+                    : 'N/A (Skipped)'}
+                </Text>
+              </View>
+
+              {/* Flotation Mass Display */}
+              <View style={{ width: '95%', backgroundColor: '#232931', padding: 12, borderRadius: 8, marginBottom: 15, alignSelf: 'center' }}>
+                <Text style={{ color: '#888', fontSize: 12 }}>Flotation Prep Mass Allocation:</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginTop: 2 }}>
+                  {selectedSample.flotationPrepResult !== null && selectedSample.flotationPrepResult !== undefined
+                    ? `${selectedSample.flotationPrepResult} kg`
+                    : 'N/A (Skipped)'}
+                </Text>
+              </View>
+
+              {/* 🛡️ WORKFLOW AUDIT TRACKING SECTION */}
+              <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: '700', marginTop: 5, marginBottom: 10, alignSelf: 'flex-start', marginLeft: '5%' }}>
+                Chain of Custody Info
+              </Text>
+
+              <View style={{ width: '95%', backgroundColor: '#1F2421', padding: 12, borderRadius: 8, marginBottom: 25, alignSelf: 'center' }}>
+                <Text style={{ color: '#888', fontSize: 12 }}>Logged By User Account:</Text>
+                <Text style={{ color: '#c8d4e6', fontSize: 14, fontWeight: '600', marginBottom: 8 }}>{selectedSample.loggedBy || 'Technician'}</Text>
+
+                <Text style={{ color: '#888', fontSize: 12 }}>Workflow Stage Status:</Text>
+                <Text style={{ color: '#E8A87C', fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>{selectedSample.status}</Text>
+
+                <Text style={{ color: '#888', fontSize: 12 }}>System Entry Timestamp:</Text>
+                <Text style={{ color: '#c8d4e6', fontSize: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>
+                  {selectedSample.createdAt ? new Date(selectedSample.createdAt).toLocaleString() : 'N/A'}
+                </Text>
+              </View>
+
+              {/* BACK BUTTON */}
+              <TouchableOpacity 
+                style={[styles.loginButton, { backgroundColor: '#393E46', marginTop: 5 }]} 
+                onPress={() => {
+                  setSelectedSample(null); // Clean out detail active memory
+                  setScreen('lab_technician_dashboard'); // Route back to list context
+                }}
+              >
+                <Text style={styles.loginButtonText}>Return to Dashboard</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </SafeAreaView>
         </View>
       </SafeAreaProvider>
@@ -1814,6 +1895,70 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
       </SafeAreaProvider>
     );
   }
+
+  // 📋 2b. TECHNICIAN VIEW SAMPLES QUEUE SCREEN
+  if (screen === 'view_samples_list') {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+              <Text style={styles.title}>EM-Lab</Text>
+              <Text style={styles.subtitle}>Logged Samples Queue</Text>
+
+              {/* Dynamic Map Loop over loaded Firebase data */}
+              {mineralSamples && mineralSamples.length > 0 ? (
+                mineralSamples.map((sample) => (
+                  <TouchableOpacity 
+                    key={sample.sampleId} 
+                    style={{
+                      width: '95%',
+                      backgroundColor: '#232931',
+                      padding: 15,
+                      borderRadius: 10,
+                      marginBottom: 12,
+                      alignSelf: 'center',
+                      borderLeftWidth: 4,
+                      borderLeftColor: sample.status === 'Pending Analysis' ? '#E8A87C' : '#4E9F3D'
+                    }} 
+                    onPress={() => {
+                      setSelectedSample(sample);      // Set document context for audit detail view
+                      setScreen('view_sample_details'); // Redirect route path
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>{sample.displayId}</Text>
+                      <Text style={{ color: sample.status === 'Pending Analysis' ? '#E8A87C' : '#4E9F3D', fontSize: 12, fontWeight: '600' }}>
+                        {sample.status}
+                      </Text>
+                    </View>
+                    <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 5 }}>
+                      Ore: <Text style={{ fontWeight: 'bold', color: sample.oreType === 'Not Classified' ? '#FF6B6B' : '#fff' }}>{sample.oreType}</Text>
+                    </Text>
+                    <Text style={{ color: '#888', fontSize: 11, marginTop: 4 }}>
+                      Weight: {sample.initialWeight} kg | Logged by: {sample.loggedBy || 'Tech'}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={{ color: '#888', textAlign: 'center', marginTop: 30, fontSize: 14 }}>
+                  No mineral samples logged yet for this session.
+                </Text>
+              )}
+
+              {/* RETURN NAVIGATION CONTROL BUTTON */}
+              <TouchableOpacity 
+                style={[styles.roleButton, { backgroundColor: '#34495e', marginTop: 20, width: '95%', alignSelf: 'center' }]} 
+                onPress={() => setScreen('lab_technician_dashboard')}
+              >
+                <Text style={styles.buttonText}>Back to Main Portal</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
   
   // --- MAIN LAYOUT GATE (DASHBOARD, PROFILE, LOGIN) ---
   const userRole = role ? role.toLowerCase().trim() : '';
@@ -1926,7 +2071,15 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                 <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => fetchMineralSamples(companyName, true)} 
->
+>             
+<TouchableOpacity 
+  style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
+  onPress={async () => {
+    await fetchMineralSamples(companyName, true); // Trigger firebase dynamic loading function
+    setScreen('view_samples_list');               // Route user into the list view we just created
+  }} 
+></TouchableOpacity>
+
                 <Text style={styles.buttonText}>📋 View Logged Samples</Text>
               </TouchableOpacity>
             </View>
@@ -2117,7 +2270,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', padding: 20 },
-  scrollContainer: { flexGrow: 1, paddingVertical: 40, justifyContent: 'center' },
+  scrollContainer: { paddingVertical: 20, alignItems: 'center' },
   title: { fontSize: 42, fontWeight: 'bold', textAlign: 'center', color: '#ffffff', marginBottom: 10 },
   subtitle: { fontSize: 16, textAlign: 'center', color: '#c8d4e6', marginBottom: 40 },
   input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000' },
