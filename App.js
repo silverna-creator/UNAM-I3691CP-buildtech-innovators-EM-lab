@@ -418,7 +418,7 @@ const [selectedOre, setSelectedOre] = useState('');
     }
   };
 
-  const LaboratoryLockdownScreen = ({ onCheckStatus }) => (
+  const LaboratoryLockdownScreen = ({ onCheckStatus, onReturnToLogin }) => (
   <SafeAreaProvider>
     <View style={{ flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', alignItems: 'center' }}>
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
@@ -433,16 +433,35 @@ const [selectedOre, setSelectedOre] = useState('');
           </Text>
         </View>
 
+        {/* 🔄 Button 1: Re-check status if they are waiting for the admin to flip it back on */}
         <TouchableOpacity 
-          style={[styles.button, { backgroundColor: '#2ecc71', marginTop: 30 }]} 
+          style={[styles.button, { backgroundColor: '#2ecc71', marginTop: 30, width: '80%' }]} 
           onPress={onCheckStatus}
         >
           <Text style={styles.buttonText}>🔄 Re-check System Status</Text>
+        </TouchableOpacity>
+
+        {/* 🚪 Button 2: Clean exit back to login so you can switch back to the Admin account smoothly */}
+        <TouchableOpacity 
+          style={[styles.button, { backgroundColor: '#475569', marginTop: 12, width: '80%' }]} 
+          onPress={onReturnToLogin}
+        >
+          <Text style={styles.buttonText}>🚪 Return to Login Screen</Text>
         </TouchableOpacity>
       </SafeAreaView>
     </View>
   </SafeAreaProvider>
 );
+
+const handleLockdownExit = async () => {
+  try {
+    await signOut(auth); // Tell Firebase to log out the current staff session
+    setScreen('login');  // Route the UI back to the login screen panel
+    setRole('');         // Clear temporary state profile definitions
+  } catch (error) {
+    console.error("Error signing out from lockdown screen:", error);
+  }
+};
 
 const fetchSystemSettingsStatus = async () => {
     try {
@@ -1096,7 +1115,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
   }
 
   if ((screen === 'lab_technician_dashboard' || screen === 'log_sample' || screen === 'sample_directory') && !isLabActive) {
-    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} />;
+    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
   }
 
   if (screen === 'log_sample') {
@@ -1307,7 +1326,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
   }
 
   if ((screen === 'furnace_operator_dashboard' || screen === 'view_approved_melts' || screen === 'log_melt_cycle') && !isLabActive) {
-    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} />;
+    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
   }
 
   // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
@@ -1498,7 +1517,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
   }
 
   if ((screen === 'metallurgist_dashboard') && !isLabActive) {
-    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} />;
+    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
   }
   
   // --- 🧪 METALLURGIST ACTIVE ASSAY QUEUE SCREEN ---
