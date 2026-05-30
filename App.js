@@ -160,7 +160,7 @@ const [selectedOre, setSelectedOre] = useState('');
             if (userRole === 'admin') {
               setScreen('dashboard'); 
               // 🟢 DROPPED HERE: Pre-load telemetry data cleanly for the admin dashboard screen
-              fetchLiveFurnaceTelemetry();
+              fetchLiveFurnaceTelemetry(userCompany);
             } else if (userRole === 'lab_manager' || userRole === 'lab technician') {
               console.log(`Routing ${userData.fullName} to Lab Technician Portal smoothly for [${userCompany.toUpperCase()}]...`);
               setScreen('lab_technician_dashboard'); 
@@ -733,13 +733,15 @@ const updateFurnaceTelemetry = async () => {
   }
 };
 
-const fetchLiveFurnaceTelemetry = async () => {
+const fetchLiveFurnaceTelemetry = async (company) => {
     try {
+      const targetCompany = company || companyName;
+      if (!targetCompany) return;
+
       const samplesRef = collection(db, "mineral_samples");
-      // Query for samples that are currently processing inside the furnace
       const q = query(
         samplesRef, 
-        where("company", "==", companyName), 
+        where("company", "==", targetCompany), 
         where("status", "==", "In Melt Cycle")
       );
       
@@ -749,7 +751,6 @@ const fetchLiveFurnaceTelemetry = async () => {
         activeMelts.push({ id: doc.id, ...doc.data() });
       });
       
-      // Save them into your existing array state variable
       setFurnaceLogs(activeMelts);
     } catch (error) {
       console.error("Error fetching live telemetry for admin:", error);
