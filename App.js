@@ -129,80 +129,97 @@ const [selectedOre, setSelectedOre] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
 
   const [moistureValue, setMoistureValue] = useState('');     // For moisture test %
-const [flotationValue, setFlotationValue] = useState('');   // For flotation prep check kg or density
+const [flotationValue, setFlotationValue] = useState('');   // For flotation prep kg
 
 
  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
-      if (authenticatedUser) {
-        setUser(authenticatedUser);
-        setIsReady(true); 
+  const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
+    if (authenticatedUser) {
+      setUser(authenticatedUser);
+      setIsReady(true); 
 
-        try {
-          // 🔒 1. FETCH GLOBAL LOCKDOWN STATUS FIRST ON MOUNT/REFRESH
-          const statusDoc = await getDoc(doc(db, "system_status", "lab_configuration"));
-          let currentLabActive = true; // Safe default
-          if (statusDoc.exists()) {
-            currentLabActive = statusDoc.data().isLabActive;
-            setIsLabActive(currentLabActive); // Sync state globally
-          }
+      try {
+        // 🔒 1. FETCH GLOBAL LOCKDOWN STATUS FIRST ON MOUNT/REFRESH
+        console.log("DEBUG: Initiating system configuration pull from Firestore...");
+        
+        let currentLabActive = true; // 🌟 Safely scoped variable initialization
 
-          // 👤 2. FETCH USER PROFILE DETAILS
-          const userDoc = await getDoc(doc(db, "users", authenticatedUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setFullName(userData.fullName || "");
-            
-            const userRole = userData.role ? userData.role.toLowerCase().trim() : "";
-            setRole(userRole);
-            
-            // 🛡️ DYNAMIC MULTI-TENANT VERIFICATION
-            if (!userData.company || userData.company.trim() === "") {
-              console.error("❌ TENANT ISOLATION BREACH: User profile has no company assignment.");
-              const companyError = "Account configuration error: No company portfolio assigned to this profile. Contact your system administrator.";
-              Platform.OS === 'web' ? alert(companyError) : Alert.alert("Profile Error", companyError);
-              setScreen('login');
-              return;
-            }
+        const statusDoc = await getDoc(doc(db, "system_status", "lab_configuration"));
 
-            const userCompany = userData.company.trim();
-            setCompanyName(userCompany);
-            
-            // 🚦 3. THE SMART ROUTER GATEWAY (WITH REFRESH DEFENSE)
-            if (userRole === 'admin') {
-              setScreen('dashboard'); 
-              fetchLiveFurnaceTelemetry(userCompany);
-            } else {
-              // If the lab is locked down in the database, lock them down immediately on refresh!
-              if (!currentLabActive) {
-                setScreen('lockdown_block'); // Or let your screen conditional handle it
-              } else if (userRole === 'lab_manager' || userRole === 'lab technician') {
-                console.log(`Routing ${userData.fullName} to Lab Technician Portal...`);
-                setScreen('lab_technician_dashboard'); 
-                fetchMineralSamples(userCompany);
-              } else if (userRole === 'furnace operator') {
-                setScreen('furnace_operator_dashboard'); 
-              } else if (userRole === 'metallurgist') {
-                setScreen('metallurgist_dashboard'); 
-              } else {
-                setScreen('login');
-              }
-            }
-          } else {
+        if (statusDoc.exists()) {
+          const dbData = statusDoc.data();
+          console.log("DEBUG: Raw document payload found in Firestore:", dbData);
+          console.log("DEBUG: Type of isLabActive field:", typeof dbData.isLabActive);
+          
+          // 🚩 Force true comparison check in case it's saved as a string or matching alternative key
+          currentLabActive = dbData.isLabActive === true || dbData.isLabActive === "true";
+          
+          console.log("DEBUG: Final parsed state assigned to app:", currentLabActive);
+          setIsLabActive(currentLabActive); 
+        } else {
+          console.warn("DEBUG: Document system_status/lab_configuration does not exist! Defaulting to closed (false).");
+          currentLabActive = false; // Sync local routing logic fallback
+          setIsLabActive(false); 
+        }
+
+        // 👤 2. FETCH USER PROFILE DETAILS
+        const userDoc = await getDoc(doc(db, "users", authenticatedUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setFullName(userData.fullName || "");
+          
+          const userRole = userData.role ? userData.role.toLowerCase().trim() : "";
+          setRole(userRole);
+          
+          // 🛡️ DYNAMIC MULTI-TENANT VERIFICATION
+          if (!userData.company || userData.company.trim() === "") {
+            console.error("❌ TENANT ISOLATION BREACH: User profile has no company assignment.");
+            const companyError = "Account configuration error: No company portfolio assigned to this profile. Contact your system administrator.";
+            Platform.OS === 'web' ? alert(companyError) : Alert.alert("Profile Error", companyError);
             setScreen('login');
+            return;
           }
-        } catch (error) {
-          console.error("Database fetch error during authentication routing:", error);
+
+          const userCompany = userData.company.trim();
+          setCompanyName(userCompany);
+          
+          // 🚦 3. THE SMART ROUTER GATEWAY (WITH REFRESH DEFENSE)
+          if (userRole === 'admin') {
+            setScreen('dashboard'); 
+            fetchLiveFurnaceTelemetry(userCompany);
+          } else {
+            // If the lab is locked down in the database, lock them down immediately on refresh!
+            if (!currentLabActive) {
+              setScreen('lockdown_block');
+            } else if (userRole === 'lab_manager' || userRole === 'lab technician') {
+              console.log(`Routing ${userData.fullName} to Lab Technician Portal...`);
+              setScreen('lab_technician_dashboard'); 
+              fetchMineralSamples(userCompany);
+            } else if (userRole === 'furnace operator') {
+              setScreen('furnace_operator_dashboard'); 
+            } else if (userRole === 'metallurgist') {
+              console.log("Routing to Metallurgist Portal, pulling queue files...");
+              setScreen('metallurgist_dashboard'); 
+              fetchMineralSamples(userCompany); 
+            } else {
+              setScreen('login');
+            }
+          }
+        } else {
           setScreen('login');
         }
-      } else {
-        setUser(null);
-        setIsReady(true); 
+      } catch (error) {
+        console.error("Database fetch error during authentication routing:", error);
         setScreen('login');
       }
-    });
-    return unsubscribe;
-  }, []);
+    } else {
+      setUser(null);
+      setIsReady(true); 
+      setScreen('login');
+    }
+  });
+  return unsubscribe;
+}, []);
 
   // --- AUTH LOGIC ---
   const handleLogin = async () => {
@@ -587,21 +604,22 @@ const fetchStaffDirectory = async () => {
   const logMineralSample = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
-    // Validation Check: Ensure core details are filled, and AT LEAST one test reading is provided
+    // 1️⃣ CORE VALIDATION CHECK
     if (!sampleId || !sampleId.trim() || !initialWeight || !initialWeight.trim()) {
       const msg = "Please fill in the Sample ID and Initial Weight.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
     }
 
-    if (!moistureValue.trim() && !flotationValue.trim()) {
-      const msg = "Please enter at least one test result (Moisture or Flotation) before committing.";
+    // 2️⃣ MULTI-TEST VALIDATION CHECK: Ensure they filled in at least one of the new cards
+    if ((!moistureValue || !moistureValue.trim()) && (!flotationValue || !flotationValue.trim())) {
+      const msg = "Please enter at least one test result (Moisture Content or Flotation Prep) before submitting.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
     }
 
     try {
-      // 🛡️ Recover dynamic multi-tenant company scope
+      // 🛡️ RECOVER DYNAMIC MULTI-TENANT COMPANY SCOPE
       let operationalCompany = "UNAM"; 
       if (companyName && companyName.trim() !== "") {
         operationalCompany = companyName.trim();
@@ -613,19 +631,22 @@ const fetchStaffDirectory = async () => {
 
       const cleanCompany = operationalCompany.toUpperCase().trim();
       const cleanSampleId = sampleId.trim().toUpperCase();
+      
+      // 🎯 GENERATE COMPOSITE CUSTOM ID KEY
       const uniqueCompositeId = `${cleanCompany}_${cleanSampleId}`;
 
-      // 🛡️ SANITIZATION LAYER
+      // 🛡️ SANITIZATION LAYER: Force types with zero undefined gaps
       const finalOreType = selectedOre ? selectedOre.toString() : "Not Classified";
       const finalWeight = parseFloat(initialWeight) || 0.0;
       const finalLoggedBy = fullName ? fullName.toString() : "Technician";
       const finalTimestamp = new Date().toISOString();
 
-      // Convert inputs to numbers if they exist, otherwise mark as N/A or null
-      const finalMoisture = moistureValue.trim() ? parseFloat(moistureValue) : null;
-      const finalFlotation = flotationValue.trim() ? parseFloat(flotationValue) : null;
+      // 🧪 PARSE THE NEW INDEPENDENT INPUT CARD VALUES
+      // If a field is blank, it saves cleanly as null in Firestore
+      const finalMoisture = moistureValue && moistureValue.trim() ? parseFloat(moistureValue) : null;
+      const finalFlotation = flotationValue && flotationValue.trim() ? parseFloat(flotationValue) : null;
 
-      // Assemble a single unified sample payload package
+      // Assemble the final compliant data payload package
       const sampleData = {
         sampleId: uniqueCompositeId, 
         displayId: cleanSampleId,     
@@ -636,32 +657,38 @@ const fetchStaffDirectory = async () => {
         createdAt: finalTimestamp,
         status: "Pending Analysis",
         
-        // Both tests saved clearly inside the SAME sample record!
+        // 💾 SAVING BOTH NEW FEATURE CARD VALUES SEPARATELY
         moistureTestResult: finalMoisture, 
         flotationPrepResult: finalFlotation
       };
 
+      console.log("Writing customized document path directly...", uniqueCompositeId);
+
+      // DIRECT SECURE WRITE TO FIRESTORE
       const customDocRef = doc(db, "mineral_samples", uniqueCompositeId);
       await setDoc(customDocRef, sampleData);
       
-      const successMsg = `Sample ${cleanSampleId} logged successfully with active test metrics!`;
+      console.log("Sample stored successfully with Unique ID:", uniqueCompositeId);
+
+      const successMsg = `Sample ${cleanSampleId} logged successfully under secure ID: ${uniqueCompositeId}!`;
       Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
 
-      // Reset all inputs cleanly
+      // 🧹 RESET THE INPUTS FOR THE NEXT ENTRY
       setSampleId('');
       setInitialWeight('');
-      setMoistureValue('');
-      setFlotationValue('');
       setSelectedGroup('SULFIDES'); 
       setSelectedOre('');
+      setMoistureValue('');  // Clears moisture card
+      setFlotationValue(''); // Clears flotation card
       
+      // Dynamic refresh on the dashboard component
       fetchMineralSamples(cleanCompany);
     } catch (error) {
-      console.error("Detailed Error Logging Catch:", error);
+      console.error("Detailed Error Logging Catch:", JSON.stringify(error, null, 2) || error.message);
       const standardError = `Failed to log sample: ${error?.message || 'Data integrity fault'}`;
       Platform.OS === 'web' ? alert(standardError) : Alert.alert("Error", standardError);
     }
-  };
+};
   
 const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) => {
     // 🏎️ RACE CONDITION BYPASS: Use the parameter string if passed during login, 
@@ -1193,29 +1220,46 @@ const fetchLiveFurnaceTelemetry = async (company) => {
                   ))}
                 </select>
 
-                <View style={{ width: '90%', height: 1, backgroundColor: '#2E2E4A', marginVertical: 10 }} />
+                {/* 🛠️ INDEPENDENT EXPERIMENTAL TESTS SECTION */}
+                <Text style={{ color: '#c8d4e6', marginBottom: 12, fontSize: 14, fontWeight: 'bold', alignSelf: 'flex-start', marginLeft: '5%' }}>
+                  Assign Laboratory Analysis Metrics:
+                </Text>
 
-                {/* 🧪 MOISTURE TEST FIELD */}
-                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start' }}>Moisture Test Value (Optional %):</Text>
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="e.g., 5.4 (Leave blank if skipped)" 
-                  value={moistureValue} 
-                  onChangeText={setMoistureValue} 
-                  keyboardType="numeric" 
-                  placeholderTextColor="#555" 
-                />
+                {/* 💧 MOISTURE CONTENT TEST CARD */}
+                <View style={{ width: '90%', backgroundColor: '#232931', padding: 15, borderRadius: 12, marginBottom: 15, alignSelf: 'center' }}>
+                  <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>
+                    1. Moisture Content Test
+                  </Text>
+                  <Text style={{ color: '#c8d4e6', fontSize: 12, marginBottom: 10 }}>
+                    Enter the measured moisture mass percentage (Leave blank if skipped).
+                  </Text>
+                  <TextInput
+                    style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 12, fontSize: 16, color: '#000' }}
+                    placeholder="e.g. 5.4"
+                    placeholderTextColor="#888"
+                    keyboardType="numeric"
+                    value={moistureValue}
+                    onChangeText={setMoistureValue}
+                  />
+                </View>
 
-                {/* 🧪 FLOTATION PREP FIELD */}
-                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start' }}>Flotation Prep Mass (Optional kg):</Text>
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="e.g., 2.1 (Leave blank if skipped)" 
-                  value={flotationValue} 
-                  onChangeText={setFlotationValue} 
-                  keyboardType="numeric" 
-                  placeholderTextColor="#555" 
-                />
+                {/* 🧪 FLOTATION PREP MASS CARD */}
+                <View style={{ width: '90%', backgroundColor: '#232931', padding: 15, borderRadius: 12, marginBottom: 20, alignSelf: 'center' }}>
+                  <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>
+                    2. Flotation Prep Target Allocation
+                  </Text>
+                  <Text style={{ color: '#c8d4e6', fontSize: 12, marginBottom: 10 }}>
+                    Enter the allocated mass target in kg (Leave blank if skipped).
+                  </Text>
+                  <TextInput
+                    style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 12, fontSize: 16, color: '#000' }}
+                    placeholder="e.g. 2.5"
+                    placeholderTextColor="#888"
+                    keyboardType="numeric"
+                    value={flotationValue}
+                    onChangeText={setFlotationValue}
+                  />
+                </View>
 
                 <TouchableOpacity style={styles.loginButton} onPress={logMineralSample}>
                   <Text style={styles.loginButtonText}>Commit Sample</Text>
@@ -1230,7 +1274,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
 
   if (screen === 'sample_directory') {
     return (
@@ -1281,97 +1325,6 @@ const fetchLiveFurnaceTelemetry = async (company) => {
     );
   }
 
-  if (screen === 'view_sample_details' && selectedSample) {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-              <Text style={styles.title}>EM-Lab</Text>
-              <Text style={styles.subtitle}>Sample Audit Log Detail</Text>
-
-              {/* 📋 CORE SAMPLE DATA CARD */}
-              <View style={{ width: '95%', backgroundColor: '#232931', padding: 15, borderRadius: 10, marginBottom: 15, alignSelf: 'center', borderLeftWidth: 4, borderLeftColor: '#00adb5' }}>
-                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>System Composite ID</Text>
-                <Text style={{ color: '#fff', fontSize: 15, fontWeight: 'bold', marginBottom: 10 }}>{selectedSample.sampleId}</Text>
-
-                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>Display Batch Code</Text>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 10 }}>{selectedSample.displayId}</Text>
-
-                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>Initial Weight</Text>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 10 }}>{selectedSample.initialWeight} kg</Text>
-
-                <Text style={{ color: '#888', fontSize: 11, uppercase: true }}>Ore Classification Status</Text>
-                <Text style={{ 
-                  color: selectedSample.oreType === 'Not Classified' ? '#FF6B6B' : '#4E9F3D', 
-                  fontSize: 16, 
-                  fontWeight: 'bold',
-                  marginBottom: 5 
-                }}>
-                  {selectedSample.oreType}
-                </Text>
-              </View>
-
-              {/* 📊 PHYSICAL METRICS TELEMETRY FIELD */}
-              <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: '700', marginTop: 5, marginBottom: 10, alignSelf: 'flex-start', marginLeft: '5%' }}>
-                Preliminary Physical Test Data
-              </Text>
-
-              {/* Moisture Content Display */}
-              <View style={{ width: '95%', backgroundColor: '#232931', padding: 12, borderRadius: 8, marginBottom: 10, alignSelf: 'center' }}>
-                <Text style={{ color: '#888', fontSize: 12 }}>Moisture Content Reading:</Text>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginTop: 2 }}>
-                  {selectedSample.moistureTestResult !== null && selectedSample.moistureTestResult !== undefined
-                    ? `${selectedSample.moistureTestResult} %`
-                    : 'N/A (Skipped)'}
-                </Text>
-              </View>
-
-              {/* Flotation Mass Display */}
-              <View style={{ width: '95%', backgroundColor: '#232931', padding: 12, borderRadius: 8, marginBottom: 15, alignSelf: 'center' }}>
-                <Text style={{ color: '#888', fontSize: 12 }}>Flotation Prep Mass Allocation:</Text>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', marginTop: 2 }}>
-                  {selectedSample.flotationPrepResult !== null && selectedSample.flotationPrepResult !== undefined
-                    ? `${selectedSample.flotationPrepResult} kg`
-                    : 'N/A (Skipped)'}
-                </Text>
-              </View>
-
-              {/* 🛡️ WORKFLOW AUDIT TRACKING SECTION */}
-              <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: '700', marginTop: 5, marginBottom: 10, alignSelf: 'flex-start', marginLeft: '5%' }}>
-                Chain of Custody Info
-              </Text>
-
-              <View style={{ width: '95%', backgroundColor: '#1F2421', padding: 12, borderRadius: 8, marginBottom: 25, alignSelf: 'center' }}>
-                <Text style={{ color: '#888', fontSize: 12 }}>Logged By User Account:</Text>
-                <Text style={{ color: '#c8d4e6', fontSize: 14, fontWeight: '600', marginBottom: 8 }}>{selectedSample.loggedBy || 'Technician'}</Text>
-
-                <Text style={{ color: '#888', fontSize: 12 }}>Workflow Stage Status:</Text>
-                <Text style={{ color: '#E8A87C', fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>{selectedSample.status}</Text>
-
-                <Text style={{ color: '#888', fontSize: 12 }}>System Entry Timestamp:</Text>
-                <Text style={{ color: '#c8d4e6', fontSize: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>
-                  {selectedSample.createdAt ? new Date(selectedSample.createdAt).toLocaleString() : 'N/A'}
-                </Text>
-              </View>
-
-              {/* BACK BUTTON */}
-              <TouchableOpacity 
-                style={[styles.loginButton, { backgroundColor: '#393E46', marginTop: 5 }]} 
-                onPress={() => {
-                  setSelectedSample(null); // Clean out detail active memory
-                  setScreen('lab_technician_dashboard'); // Route back to list context
-                }}
-              >
-                <Text style={styles.loginButtonText}>Return to Dashboard</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
-
   if (screen === 'system_settings') {
     return (
       <SafeAreaProvider>
@@ -1394,7 +1347,11 @@ const fetchLiveFurnaceTelemetry = async (company) => {
               <Text style={{ color: '#f1c40f', fontWeight: 'bold', marginBottom: 15, marginTop: 10 }}>🏢 LAB STATUS</Text>
               <TouchableOpacity 
                 style={[styles.roleButton, { backgroundColor: isLabActive ? '#27ae60' : '#c0392b', width: '100%' }]}
-                onPress={() => setIsLabActive(!isLabActive)}
+                onPress={() => {
+                  const nextState = !isLabActive;
+                  setIsLabActive(nextState);
+                  console.log("Local UI State changed to:", nextState);
+                }}
               >
                 <Text style={styles.buttonText}>
                   System Status: {isLabActive ? "ACTIVE (RECEIVING SAMPLES)" : "INACTIVE (PAUSED)"}
@@ -1402,12 +1359,33 @@ const fetchLiveFurnaceTelemetry = async (company) => {
               </TouchableOpacity>
             </View>
 
+            {/* 💾 PERSISTENT SAVE CONFIGURATIONS BUTTON */}
             <TouchableOpacity 
               style={[styles.roleButton, { marginTop: 20, backgroundColor: '#2980b9' }]} 
-              onPress={() => {
-                const msg = "System configurations updated successfully!";
-                Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
-                setScreen('dashboard');
+              onPress={async () => {
+                try {
+                  console.log("Saving explicit configurations to Firestore: ", isLabActive);
+                  
+                  const configDocRef = doc(db, "system_status", "lab_configuration");
+                  
+                  // Force direct boolean writing to avoid state race conditions
+                  await setDoc(configDocRef, {
+                    isLabActive: Boolean(isLabActive),
+                    maxTemperatureLimit: parseFloat(maxFurnaceTemp) || 1200,
+                    lastUpdatedBy: fullName || "Admin",
+                    updatedAt: new Date().toISOString()
+                  }, { merge: true });
+
+                  console.log("🟢 Document successfully initialized/overwritten in database!");
+
+                  const msg = "Configurations saved securely to database!";
+                  Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
+                  setScreen('dashboard');
+                } catch (error) {
+                  console.error("Error saving system settings profile:", error);
+                  const errMsg = `Failed to write parameters: ${error.message}`;
+                  Platform.OS === 'web' ? alert(errMsg) : Alert.alert("Error", errMsg);
+                }
               }}
             >
               <Text style={styles.buttonText}>💾 Save Configurations</Text>
@@ -1420,7 +1398,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
 
   if (screen === 'log_melt_cycle') {
     return (
@@ -1895,70 +1873,6 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
       </SafeAreaProvider>
     );
   }
-
-  // 📋 2b. TECHNICIAN VIEW SAMPLES QUEUE SCREEN
-  if (screen === 'view_samples_list') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-              <Text style={styles.title}>EM-Lab</Text>
-              <Text style={styles.subtitle}>Logged Samples Queue</Text>
-
-              {/* Dynamic Map Loop over loaded Firebase data */}
-              {mineralSamples && mineralSamples.length > 0 ? (
-                mineralSamples.map((sample) => (
-                  <TouchableOpacity 
-                    key={sample.sampleId} 
-                    style={{
-                      width: '95%',
-                      backgroundColor: '#232931',
-                      padding: 15,
-                      borderRadius: 10,
-                      marginBottom: 12,
-                      alignSelf: 'center',
-                      borderLeftWidth: 4,
-                      borderLeftColor: sample.status === 'Pending Analysis' ? '#E8A87C' : '#4E9F3D'
-                    }} 
-                    onPress={() => {
-                      setSelectedSample(sample);      // Set document context for audit detail view
-                      setScreen('view_sample_details'); // Redirect route path
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>{sample.displayId}</Text>
-                      <Text style={{ color: sample.status === 'Pending Analysis' ? '#E8A87C' : '#4E9F3D', fontSize: 12, fontWeight: '600' }}>
-                        {sample.status}
-                      </Text>
-                    </View>
-                    <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 5 }}>
-                      Ore: <Text style={{ fontWeight: 'bold', color: sample.oreType === 'Not Classified' ? '#FF6B6B' : '#fff' }}>{sample.oreType}</Text>
-                    </Text>
-                    <Text style={{ color: '#888', fontSize: 11, marginTop: 4 }}>
-                      Weight: {sample.initialWeight} kg | Logged by: {sample.loggedBy || 'Tech'}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <Text style={{ color: '#888', textAlign: 'center', marginTop: 30, fontSize: 14 }}>
-                  No mineral samples logged yet for this session.
-                </Text>
-              )}
-
-              {/* RETURN NAVIGATION CONTROL BUTTON */}
-              <TouchableOpacity 
-                style={[styles.roleButton, { backgroundColor: '#34495e', marginTop: 20, width: '95%', alignSelf: 'center' }]} 
-                onPress={() => setScreen('lab_technician_dashboard')}
-              >
-                <Text style={styles.buttonText}>Back to Main Portal</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
   
   // --- MAIN LAYOUT GATE (DASHBOARD, PROFILE, LOGIN) ---
   const userRole = role ? role.toLowerCase().trim() : '';
@@ -2071,15 +1985,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                 <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => fetchMineralSamples(companyName, true)} 
->             
-<TouchableOpacity 
-  style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
-  onPress={async () => {
-    await fetchMineralSamples(companyName, true); // Trigger firebase dynamic loading function
-    setScreen('view_samples_list');               // Route user into the list view we just created
-  }} 
-></TouchableOpacity>
-
+>
                 <Text style={styles.buttonText}>📋 View Logged Samples</Text>
               </TouchableOpacity>
             </View>
@@ -2270,7 +2176,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', padding: 20 },
-  scrollContainer: { paddingVertical: 20, alignItems: 'center' },
+  scrollContainer: { flexGrow: 1, paddingVertical: 40, justifyContent: 'center' },
   title: { fontSize: 42, fontWeight: 'bold', textAlign: 'center', color: '#ffffff', marginBottom: 10 },
   subtitle: { fontSize: 16, textAlign: 'center', color: '#c8d4e6', marginBottom: 40 },
   input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000' },
