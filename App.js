@@ -738,25 +738,28 @@ const fetchLiveFurnaceTelemetry = async (company) => {
       const targetCompany = company || companyName;
       if (!targetCompany) return;
 
-      const samplesRef = collection(db, "mineral_samples");
+      // 🟢 FIX: Look inside the 'furnace_operations' collection instead!
+      const operationsRef = collection(db, "furnace_operations");
+      
+      // Query based on your screenshot's exact field name: 'companyId'
       const q = query(
-        samplesRef, 
-        where("company", "==", targetCompany), 
-        where("status", "==", "In Melt Cycle")
+        operationsRef, 
+        where("companyId", "==", targetCompany)
       );
       
       const querySnapshot = await getDocs(q);
       const activeMelts = [];
+      
       querySnapshot.forEach((doc) => {
         activeMelts.push({ id: doc.id, ...doc.data() });
       });
       
       setFurnaceLogs(activeMelts);
     } catch (error) {
-      console.error("Error fetching live telemetry for admin:", error);
+      console.error("Error fetching live telemetry from furnace_operations:", error);
     }
   };
-
+  
   const fetchSamplesForAnalysis = async () => {
     // 🔥 Force screen transition first so the UI never feels frozen
     setScreen('analysis_queue');
@@ -1707,9 +1710,9 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                 </Text>
               ) : (
                 furnaceLogs.map((melt) => {
-                  const currentTemp = melt.currentTemperature || 0;
-                  const maxAllowed = parseFloat(maxFurnaceTemp) || 1200;
-                  const isOverheated = currentTemp > maxAllowed;
+                  const currentTemp = parseFloat(melt.temperature) || 0;
+                  const maxAllowed = parseFloat(maxFurnaceTemp);
+                  const isOverheated = !isNaN(maxAllowed) ? currentTemp > maxAllowed : false;
 
                   return (
                     <View 
