@@ -1272,12 +1272,30 @@ const fetchLiveFurnaceTelemetry = async () => {
                     
                     <TouchableOpacity 
                       style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
-                      onPress={() => {
-                        // Save the selected sample's details into your states
-                        setMeltId(sample.id); // Firestore Doc ID
-                        setFurnaceTemp(sample.currentTemperature?.toString() || '');
-                        setCycleDuration(sample.cycleDurationTime || '');
-                        setScreen('log_melt_cycle');
+                      onPress={async () => {
+                        try {
+                          // 1. Instantly update Firestore so it disappears from this queue query
+                          const docRef = doc(db, "mineral_samples", sample.id);
+                          await updateDoc(docRef, {
+                            status: "In Melt Cycle",
+                            lastFurnaceUpdate: new Date().toISOString()
+                          });
+
+                          // 2. Save the selected sample's details into your states
+                          setMeltId(sample.id); // Firestore Doc ID
+                          setFurnaceTemp(sample.currentTemperature?.toString() || '');
+                          setCycleDuration(sample.cycleDurationTime || '');
+                          
+                          // 3. Move the operator into the Control Room panel
+                          setScreen('log_melt_cycle');
+
+                          // 4. Instantly filter out the selected item locally so it visually drops from the list
+                          setFurnaceLogs(prevLogs => prevLogs.filter(log => log.id !== sample.id));
+
+                        } catch (error) {
+                          console.error("Error initializing melt cycle status switch:", error);
+                          alert("⚠️ Failed to lock batch into furnace pipeline. Try again.");
+                        }
                       }}
                     >
                       <Text style={styles.buttonText}>🔥 Initialize Melt Cycle</Text>
