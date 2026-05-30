@@ -22,7 +22,7 @@ import {
   sendPasswordResetEmail, 
   reauthenticateWithCredential,
   EmailAuthProvider,
-  updatePassword, browserLocalPersistence
+  updatePassword, browserLocalPersistence, signOut
 } from "firebase/auth";
 
 import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp, deleteDoc, arrayUnion } from "firebase/firestore";
