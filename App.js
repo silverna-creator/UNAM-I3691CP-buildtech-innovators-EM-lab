@@ -129,13 +129,22 @@ const [selectedOre, setSelectedOre] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
 
 
-  useEffect(() => {
+ useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
       if (authenticatedUser) {
         setUser(authenticatedUser);
         setIsReady(true); 
 
         try {
+          // 🔒 1. FETCH GLOBAL LOCKDOWN STATUS FIRST ON MOUNT/REFRESH
+          const statusDoc = await getDoc(doc(db, "system_status", "lab_configuration"));
+          let currentLabActive = true; // Safe default
+          if (statusDoc.exists()) {
+            currentLabActive = statusDoc.data().isLabActive;
+            setIsLabActive(currentLabActive); // Sync state globally
+          }
+
+          // 👤 2. FETCH USER PROFILE DETAILS
           const userDoc = await getDoc(doc(db, "users", authenticatedUser.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
@@ -144,7 +153,7 @@ const [selectedOre, setSelectedOre] = useState('');
             const userRole = userData.role ? userData.role.toLowerCase().trim() : "";
             setRole(userRole);
             
-            // 🛡️ DYNAMIC MULTI-TENANT VERIFICATION (NO HARDCODING)
+            // 🛡️ DYNAMIC MULTI-TENANT VERIFICATION
             if (!userData.company || userData.company.trim() === "") {
               console.error("❌ TENANT ISOLATION BREACH: User profile has no company assignment.");
               const companyError = "Account configuration error: No company portfolio assigned to this profile. Contact your system administrator.";
@@ -154,25 +163,27 @@ const [selectedOre, setSelectedOre] = useState('');
             }
 
             const userCompany = userData.company.trim();
-            setCompanyName(userCompany); // Updates state for general use
+            setCompanyName(userCompany);
             
-            // 🚦 The Smart Router Gateway
+            // 🚦 3. THE SMART ROUTER GATEWAY (WITH REFRESH DEFENSE)
             if (userRole === 'admin') {
               setScreen('dashboard'); 
-              // 🟢 DROPPED HERE: Pre-load telemetry data cleanly for the admin dashboard screen
               fetchLiveFurnaceTelemetry(userCompany);
-            } else if (userRole === 'lab_manager' || userRole === 'lab technician') {
-              console.log(`Routing ${userData.fullName} to Lab Technician Portal smoothly for [${userCompany.toUpperCase()}]...`);
-              setScreen('lab_technician_dashboard'); 
-              
-              // 🏎️ RACE CONDITION BYPASS: Pass the raw string directly into the function call!
-              fetchMineralSamples(userCompany);
-            } else if (userRole === 'furnace operator') {
-              setScreen('furnace_operator_dashboard'); 
-            } else if (userRole === 'metallurgist') {
-              setScreen('metallurgist_dashboard'); 
             } else {
-              setScreen('login');
+              // If the lab is locked down in the database, lock them down immediately on refresh!
+              if (!currentLabActive) {
+                setScreen('lockdown_block'); // Or let your screen conditional handle it
+              } else if (userRole === 'lab_manager' || userRole === 'lab technician') {
+                console.log(`Routing ${userData.fullName} to Lab Technician Portal...`);
+                setScreen('lab_technician_dashboard'); 
+                fetchMineralSamples(userCompany);
+              } else if (userRole === 'furnace operator') {
+                setScreen('furnace_operator_dashboard'); 
+              } else if (userRole === 'metallurgist') {
+                setScreen('metallurgist_dashboard'); 
+              } else {
+                setScreen('login');
+              }
             }
           } else {
             setScreen('login');
