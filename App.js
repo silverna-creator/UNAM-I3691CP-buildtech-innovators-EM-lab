@@ -100,7 +100,7 @@ export default function App() {
   const [ticketText, setTicketText] = useState('');
 
   const [maxFurnaceTemp, setMaxFurnaceTemp] = useState('1200'); 
-  const [isLabActive, setIsLabActive] = useState(true);
+  const [isLabActive, setIsLabActive] = useState(false);
 
   // --- LAB TECHNICIAN STATES ---
 const [samplesList, setSamplesList] = useState([]); // 👈 Keep this so your list views don't break!
@@ -127,6 +127,9 @@ const [selectedOre, setSelectedOre] = useState('');
   const [loggedSamples, setLoggedSamples] = useState([]);
 
   const [rejectionReason, setRejectionReason] = useState('');
+
+  const [techTestType, setTechTestType] = useState('Moisture Test'); // Holds the chosen test
+const [techBaseValue, setTechBaseValue] = useState('');            // Holds the typed measurement number
 
 
  useEffect(() => {
@@ -585,8 +588,8 @@ const fetchStaffDirectory = async () => {
     if (e && e.preventDefault) e.preventDefault();
 
     // Validation Check
-    if (!sampleId || !sampleId.trim() || !initialWeight || !initialWeight.trim()) {
-      const msg = "Please fill in all sample details.";
+    if (!sampleId || !sampleId.trim() || !initialWeight || !initialWeight.trim() || !techBaseValue || !techBaseValue.trim()) {
+      const msg = "Please fill in all sample details, including the physical test base value.";
       Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
       return;
     }
@@ -614,6 +617,10 @@ const fetchStaffDirectory = async () => {
       const finalLoggedBy = fullName ? fullName.toString() : "Technician";
       const finalTimestamp = new Date().toISOString();
 
+      // 2️⃣ NEW SANITIZATION PARAMS: Clean up the new dropdown and text values
+      const finalTestType = techTestType ? techTestType.toString() : "Moisture Test";
+      const finalBaseValue = parseFloat(techBaseValue) || 0.0;
+
       // Assemble the final compliant data payload package
       const sampleData = {
         sampleId: uniqueCompositeId, 
@@ -623,7 +630,10 @@ const fetchStaffDirectory = async () => {
         company: cleanCompany, 
         loggedBy: finalLoggedBy,    
         createdAt: finalTimestamp,
-        status: "Pending Analysis" 
+        status: "Pending Analysis",
+        // 3️⃣ NEW PAYLOAD PACKS: Saving the fields safely to the document object
+        testType: finalTestType,   // Saves "Moisture Test" or "Flotation Prep Check"
+        baseValue: finalBaseValue  // Saves the input number (e.g., 5.4)
       };
 
       console.log("Writing customized document path directly...", uniqueCompositeId);
@@ -642,6 +652,9 @@ const fetchStaffDirectory = async () => {
       setInitialWeight('');
       setSelectedGroup('SULFIDES'); 
       setSelectedOre('');
+
+      // 4️⃣ NEW FORM RESET: Clears out the base value field so it's ready for the next sample
+      setTechBaseValue('');
       
       // Dynamic refresh on the dashboard component
       fetchMineralSamples(cleanCompany);
@@ -1181,6 +1194,38 @@ const fetchLiveFurnaceTelemetry = async (company) => {
                     <option key={index} value={ore}>{ore}</option>
                   ))}
                 </select>
+
+                {/* 📋 NEW STEP: SELECT TEST TYPE */}
+                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Select Test Type:</Text>
+                <select 
+                  value={techTestType} 
+                  onChange={(e) => setTechTestType(e.target.value)}
+                  style={{
+                    width: '90%',
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: '#232931',
+                    color: '#fff',
+                    border: '1px solid #333',
+                    marginBottom: 15,
+                    fontSize: 14,
+                    outline: 'none'
+                  }}
+                >
+                  <option value="Moisture Test">Moisture Test</option>
+                  <option value="Flotation Prep Check">Flotation Prep Check</option>
+                </select>
+
+                {/* 🧪 NEW STEP: ENTER THE BASE VALUE */}
+                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Enter Physical Base Value (% or kg):</Text>
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="e.g., 5.4" 
+                  value={techBaseValue} 
+                  onChangeText={setTechBaseValue} 
+                  keyboardType="numeric" 
+                  placeholderTextColor="#888" 
+                />
 
                 <TouchableOpacity style={styles.loginButton} onPress={logMineralSample}>
                   <Text style={styles.loginButtonText}>Commit Sample</Text>
