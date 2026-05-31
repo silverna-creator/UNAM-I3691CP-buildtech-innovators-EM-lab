@@ -28,6 +28,7 @@ import {
 import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp, deleteDoc, arrayUnion } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
 // --- CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyAmjvhlExpJwEfkd1Dx0dnJm5cpkwfnOc8",
@@ -46,6 +47,30 @@ const ORE_DATABASE = {
   NATIVE: ["Gold (Au)", "Silver (Ag)", "Copper (Cu)"],
   CARBONATES: ["Malachite (Cu)", "Azurite (Cu)", "Calcite (Ca)"]
 };
+
+// ==========================================
+// 🚨 GLOBAL CRASH BOUNDARY ENGINE
+// ==========================================
+class CodeCrashBoundary extends React.Component {
+  state = { hasError: false, errorInfo: '' };
+  static getDerivedStateFromError(error) { return { hasError: true }; }
+  componentDidCatch(error, errorInfo) {
+    console.log("%c 💥 CRASH ENCOUNTERED: ", "background: red; color: white; font-size: 14px;");
+    console.error(error, errorInfo);
+    this.setState({ errorInfo: error.toString() });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ padding: 20, backgroundColor: '#1A1A2E', flex: 1, justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <Text style={{ color: '#ff4757', fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>⚠️ Layout Path Crashed</Text>
+          <Text style={{ color: '#f1c40f', backgroundColor: '#111', padding: 15, borderRadius: 5, fontSize: 12, width: '90%' }}>{this.state.errorInfo}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // --- SAFE INITIALIZATION ---
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -738,24 +763,45 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
     }
 
     try {
+      const cleanMeltId = meltId.trim().toUpperCase();
+
+      // 🔍 MATCHING THE EXACT FIELDS: Search furnaceLogs using displayId or sampleId
+      const linkedSample = furnaceLogs.find(sample => 
+        (sample.displayId && sample.displayId.toUpperCase() === cleanMeltId) || 
+        (sample.sampleId && sample.sampleId.toUpperCase() === cleanMeltId)
+      );
+
+      // Extract the exact field names from your Firestore snapshot structure
+      const finalOreType = linkedSample ? (linkedSample.oreType || "Not Classified") : "Not Classified";
+      const finalWeight = linkedSample ? (parseFloat(linkedSample.initialWeight) || 0) : 0;
+      const finalMoisture = linkedSample && linkedSample.moistureTestResult !== undefined ? linkedSample.moistureTestResult : null;
+      const finalFlotation = linkedSample && linkedSample.flotationPrepResult !== undefined ? linkedSample.flotationPrepResult : null;
+
       const meltData = {
-        meltId: meltId.trim().toUpperCase(),
+        meltId: cleanMeltId,
         temperature: parseFloat(furnaceTemp),
         durationMinutes: parseInt(cycleDuration),
-        companyId: companyName, // Binds it to this specific company environment
+        companyId: companyName, 
         loggedBy: fullName,
         createdAt: new Date().toISOString(),
+
+        // 💾 SAVING WITH YOUR EXACT FIELD VALUES
+        oreType: finalOreType,
+        initialWeight: finalWeight,
+        moistureTestResult: finalMoisture,
+        flotationPrepResult: finalFlotation
       };
 
       await addDoc(collection(db, "furnace_operations"), meltData);
       
-      const successMsg = `Melt Cycle ${meltId.toUpperCase()} logged successfully!`;
+      const successMsg = `Melt Cycle ${cleanMeltId} logged successfully!`;
       Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
       
       setMeltId('');
       setFurnaceTemp('');
       setCycleDuration('');
-      fetchFurnaceOperations(); // Refresh the list automatically
+      
+      if (typeof fetchFurnaceOperations === 'function') fetchFurnaceOperations(); 
     } catch (error) {
       console.error("Error logging melt cycle:", error);
     }
@@ -786,26 +832,43 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
     }
   };
 
-  const fetchApprovedMeltQueue = async () => {
+ const fetchApprovedMeltQueue = async (targetCompany) => {
+  const cleanCompany = typeof targetCompany === 'string' ? targetCompany : companyName;
+
+  if (!cleanCompany) {
+    console.log("Cannot fetch queue: Company profile name is empty.");
+    return;
+  }
+
   try {
-    const samplesRef = collection(db, "mineral_samples");
-    // 🛡️ Only fetch batches approved by the metallurgist for this company
     const q = query(
-      samplesRef, 
-      where("company", "==", companyName), 
-      where("status", "==", "Approved")
+      collection(db, "mineral_samples"), 
+      // 🟢 CHANGED FROM "companyId" TO "company" TO MATCH YOUR FIRESTORE KEY EXPLICITLY:
+      where("company", "==", cleanCompany),
+      where("status", "==", "Approved") 
     );
     
     const querySnapshot = await getDocs(q);
-    const approvedList = [];
+    const samples = [];
+    
     querySnapshot.forEach((doc) => {
-      approvedList.push({ id: doc.id, ...doc.data() });
+      const data = doc.data();
+      samples.push({
+        id: doc.id,
+        ...data,
+        sampleId: data.sampleId || '',
+        displayId: data.displayId || '',
+        oreType: data.oreType || 'Unclassified',
+        initialWeight: data.initialWeight || 0,
+        moistureTestResult: data.moistureTestResult !== undefined ? data.moistureTestResult : null,
+        flotationPrepResult: data.flotationPrepResult !== undefined ? data.flotationPrepResult : null
+      });
     });
     
-    setFurnaceLogs(approvedList);
-    setScreen('view_approved_melts');
+    setFurnaceLogs(samples); 
+    console.log(`Successfully pulled ${samples.length} approved samples for ${cleanCompany}`);
   } catch (error) {
-    console.error("Error fetching melt queue:", error);
+    console.error("Error fetching approved queue: ", error);
   }
 };
 
@@ -1422,6 +1485,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
                 <Text style={styles.title}>EM-Lab</Text>
                 <Text style={styles.subtitle}>Log Melt Cycle Data</Text>
 
+                {/* 🟢 Back to your original clean text input boxes */}
                 <TextInput style={styles.input} placeholder="Melt ID / Batch Number" value={meltId} onChangeText={setMeltId} placeholderTextColor="#888" />
                 <TextInput style={styles.input} placeholder="Current Temperature (°C)" value={furnaceTemp} onChangeText={setFurnaceTemp} keyboardType="numeric" placeholderTextColor="#888" />
                 <TextInput style={styles.input} placeholder="Cycle Duration (Minutes)" value={cycleDuration} onChangeText={setCycleDuration} keyboardType="numeric" placeholderTextColor="#888" />
@@ -1439,14 +1503,14 @@ const fetchLiveFurnaceTelemetry = async (company) => {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
 
   if ((screen === 'furnace_operator_dashboard' || screen === 'view_approved_melts' || screen === 'log_melt_cycle') && !isLabActive) {
     return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
   }
 
   // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
-  if (screen === 'view_approved_melts') {
+if (screen === 'view_approved_melts') {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
@@ -1468,8 +1532,27 @@ const fetchLiveFurnaceTelemetry = async (company) => {
                       Sample ID: {sample.sampleId || sample.displayId}
                     </Text>
                     <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
-                      Ore Type: {sample.oreType} | Certified Purity: {sample.purityGrade}
+                      Ore Type: {sample.oreType} | Certified Purity: {sample.purityGrade || sample.purity}
                     </Text>
+                    
+                    {/* 🏭 OPERATIONAL READINGS FOR FURNACE SAFETY MANAGEMENT */}
+                    <View style={{ backgroundColor: '#1a1d24', padding: 10, borderRadius: 6, marginTop: 8, marginBottom: 5 }}>
+                      <Text style={{ color: '#fff', fontSize: 13 }}>
+                        ⚖️ Initial Mass intake: <Text style={{ color: '#3498db', fontWeight: 'bold' }}>{sample.initialWeight || 0} kg</Text>
+                      </Text>
+                      
+                      {sample.moistureTestResult !== undefined && sample.moistureTestResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
+                          💧 Moisture content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.moistureTestResult}%</Text>
+                        </Text>
+                      )}
+                      
+                      {sample.flotationPrepResult !== undefined && sample.flotationPrepResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
+                          🧪 Flotation allocation: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} kg</Text>
+                        </Text>
+                      )}
+                    </View>
                     
                     <TouchableOpacity 
                       style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
@@ -1513,7 +1596,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
 
 if (screen === 'log_melt_cycle' && selectedMeltSample) {
   return (
@@ -1589,8 +1672,10 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                 <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No furnace cycles registered yet.</Text>
               ) : (
                 furnaceLogs.map((item) => {
-                  // Alert logic: check if the run exceeded our safety threshold (e.g., 1200°C or dynamic maxFurnaceTemp)
-                  const isOverheated = item.temperature > parseFloat(maxFurnaceTemp || 1200);
+                  // 🛡️ DYNAMIC EVALUATION: Compare strictly against the loaded company parameter
+                  // If maxFurnaceTemp doesn't exist yet, we fall back safely to checking if item itself has a threshold, or mark as unverified
+                  const safetyThreshold = maxFurnaceTemp ? parseFloat(maxFurnaceTemp) : null;
+                  const isOverheated = safetyThreshold !== null ? item.temperature > safetyThreshold : false;
                   
                   return (
                     <View 
@@ -1602,21 +1687,48 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                           marginBottom: 10, 
                           padding: 15,
                           borderLeftWidth: 4,
-                          borderLeftColor: isOverheated ? '#c0392b' : '#27ae60' 
+                          borderLeftColor: safetyThreshold === null ? '#f1c40f' : (isOverheated ? '#c0392b' : '#27ae60') 
                         }
                       ]}
                     >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{item.meltId}</Text>
-                        <Text style={{ color: isOverheated ? '#c0392b' : '#27ae60', fontSize: 13, fontWeight: 'bold' }}>
-                          {isOverheated ? "⚠️ OVERHEAT" : "✅ NORMAL"}
+                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>
+                          Batch: {item.sampleId || item.meltId || "Unknown Batch"}
+                        </Text>
+                        <Text style={{ color: safetyThreshold === null ? '#f1c40f' : (isOverheated ? '#c0392b' : '#27ae60'), fontSize: 13, fontWeight: 'bold' }}>
+                          {safetyThreshold === null ? "⚠️ PROFILE UNSET" : (isOverheated ? "💥 OVERHEAT" : "✅ OPERATIONAL")}
                         </Text>
                       </View>
                       
-                      <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
-                        🌡️ Temp: {item.temperature}°C | ⏱️ Duration: {item.durationMinutes} mins
+                      {/* 🔥 THERMAL CYCLE METRICS */}
+                      <Text style={{ color: '#fff', fontSize: 14, marginTop: 6, fontWeight: '500' }}>
+                        🌡️ Temp: {item.temperature}°C {safetyThreshold && <Text style={{ fontSize: 11, color: '#888' }}>(Max Limit: {safetyThreshold}°C)</Text>}
                       </Text>
-                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 4 }}>Executed By: {item.loggedBy}</Text>
+                      <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 2 }}>
+                        ⏱️ Cycle Duration: {item.durationMinutes || item.cycleDurationTime} mins
+                      </Text>
+
+                      {/* 🪨 COMPREHENSIVE MATERIAL TRACKING DETAILS */}
+                      <View style={{ backgroundColor: '#1a1d24', padding: 8, borderRadius: 6, marginTop: 8, marginBottom: 4 }}>
+                        <Text style={{ color: '#c8d4e6', fontSize: 12 }}>
+                          📦 Ore Matrix: {item.oreType || 'N/A'} | ⚖️ Intake Mass: {item.initialWeight || 0} kg
+                        </Text>
+                        
+                        {item.moistureTestResult !== undefined && item.moistureTestResult !== null && (
+                          <Text style={{ color: '#fff', fontSize: 12, marginTop: 3 }}>
+                            💧 Moisture Content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{item.moistureTestResult}%</Text>
+                          </Text>
+                        )}
+                        {item.flotationPrepResult !== undefined && item.flotationPrepResult !== null && (
+                          <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>
+                            🧪 Flotation Allocation: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{item.flotationPrepResult} kg</Text>
+                          </Text>
+                        )}
+                      </View>
+
+                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 4, borderTopWidth: 0.5, borderTopColor: '#333', paddingTop: 4 }}>
+                        Executed By: {item.loggedBy || "Furnace Operator"}
+                      </Text>
                     </View>
                   );
                 })
@@ -1630,7 +1742,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
 
   if ((screen === 'metallurgist_dashboard') && !isLabActive) {
     return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
@@ -2078,8 +2190,14 @@ if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Furnace Operations</Text>
               
-              {/* 🟢 Keep this: It pulls the verified queue from the metallurgist */}
-              <TouchableOpacity style={styles.roleButton} onPress={fetchApprovedMeltQueue}>
+              {/* 🟢 FIXED LINE: Fetches the data AND navigates the screen to your form panel immediately */}
+              <TouchableOpacity 
+                style={styles.roleButton} 
+                onPress={async () => {
+                  await fetchApprovedMeltQueue(companyName);
+                  setScreen('log_melt_cycle');
+                }}
+              >
                 <Text style={styles.buttonText}>📋 View Certified Batches for Melting</Text>
               </TouchableOpacity>
 
@@ -2180,7 +2298,8 @@ if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole
 
   // 🔑 6. BASELINE CATCH-ALL DEFAULT INTERFACE (FALLBACK TO LOGIN IF NO ROLE ACTIVE)
   return (
-    <SafeAreaProvider>
+    <CodeCrashBoundary>
+      <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}> 
         <SafeAreaView style={styles.container}>
           <Text style={styles.title}>EM-Lab</Text>
@@ -2235,6 +2354,7 @@ if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole
         </SafeAreaView>
       </View>
     </SafeAreaProvider>
+    </CodeCrashBoundary>
   );
 }
 
