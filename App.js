@@ -1276,54 +1276,66 @@ const fetchLiveFurnaceTelemetry = async (company) => {
     );
 }
 
-  if (screen === 'sample_directory') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>Sample Batches</Text>
-            <Text style={styles.subtitle}>Active Laboratory Inventory</Text>
+ if (screen === 'sample_directory') {
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+        <SafeAreaView style={styles.container}>
+          <Text style={styles.title}>Sample Batches</Text>
+          <Text style={styles.subtitle}>Active Laboratory Inventory</Text>
 
-            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-  {/* 👇 Using a clean fallback check to make sure React watches the live array state */}
-  {!loggedSamples || loggedSamples.length === 0 ? (
-    <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
-      No samples found in local memory pool yet.
-    </Text>
-  ) : (
-    loggedSamples.map((item) => (
-      <View key={item.id} style={[{ backgroundColor: '#2e4053', padding: 15, marginBottom: 10, borderRadius: 8 }]}>
-        {/* 📋 Render checking: standardizing fallback text values */}
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
-          Batch ID: {item.sampleId || "UNKNOWN_ID"}
-        </Text>
-        <Text style={{ color: '#3498db', fontSize: 14, marginTop: 4 }}>
-          Ore Matrix: {item.oreType || "Not Specified"}
-        </Text>
-        <Text style={{ color: '#c8d4e6', fontSize: 13 }}>
-          Mass: {item.initialWeight || 0} kg
-        </Text>
-        <Text style={{ 
-          color: item.status === 'Completed' ? '#2ecc71' : '#e67e22', 
-          fontSize: 12, 
-          fontWeight: 'bold', 
-          marginTop: 6 
-        }}>
-          Status Pipeline: {item.status || "Pending Analysis"}
-        </Text>
+          <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+            {!loggedSamples || loggedSamples.length === 0 ? (
+              <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
+                No samples found in local memory pool yet.
+              </Text>
+            ) : (
+              loggedSamples.map((item) => (
+                <View key={item.id || item.sampleId} style={[{ backgroundColor: '#2e4053', padding: 15, marginBottom: 10, borderRadius: 8 }]}>
+                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
+                    Batch ID: {item.displayId || item.sampleId || "UNKNOWN_ID"}
+                  </Text>
+                  <Text style={{ color: '#3498db', fontSize: 14, marginTop: 4 }}>
+                    Ore Matrix: {item.oreType || "Not Specified"}
+                  </Text>
+                  <Text style={{ color: '#c8d4e6', fontSize: 13, marginBottom: 4 }}>
+                    Mass: {item.initialWeight || 0} kg
+                  </Text>
+
+                  {/* 🧪 DYNAMIC LAB METRICS */}
+                  {item.moistureTestResult !== undefined && item.moistureTestResult !== null && (
+                    <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#f1c40f' }}>💧 Moisture Content:</Text> {item.moistureTestResult}%
+                    </Text>
+                  )}
+
+                  {item.flotationPrepResult !== undefined && item.flotationPrepResult !== null && (
+                    <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#f1c40f' }}>🧪 Flotation Target:</Text> {item.flotationPrepResult} kg
+                    </Text>
+                  )}
+
+                  <Text style={{ 
+                    color: item.status === 'Completed' ? '#2ecc71' : '#e67e22', 
+                    fontSize: 12, 
+                    fontWeight: 'bold', 
+                    marginTop: 8 
+                  }}>
+                    Status Pipeline: {item.status || "Pending Analysis"}
+                  </Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+
+          <TouchableOpacity style={styles.button} onPress={() => setScreen('lab_technician_dashboard')}>
+            <Text style={styles.buttonText}>Back to Dashboard</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
       </View>
-    ))
-  )}
-</ScrollView>
-
-            <TouchableOpacity style={styles.button} onPress={() => setScreen('lab_technician_dashboard')}>
-              <Text style={styles.buttonText}>Back to Dashboard</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
+    </SafeAreaProvider>
+  );
+}
 
   if (screen === 'system_settings') {
     return (
@@ -1637,8 +1649,19 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
             {selectedSample ? (
               <View style={styles.roleBox}>
                 <Text style={[styles.roleTitle, { color: '#e67e22' }]}>Evaluating Batch: {selectedSample.sampleId}</Text>
-                <Text style={{ color: '#fff', marginBottom: 5 }}>Ore Matrix: {selectedSample.oreType}</Text>
-                <Text style={{ color: '#fff', marginBottom: 15 }}>Input Mass: {selectedSample.initialWeight} kg</Text>
+                <Text style={{ color: '#fff', marginBottom: 3 }}>Ore Matrix: {selectedSample.oreType}</Text>
+                <Text style={{ color: '#fff', marginBottom: 5 }}>Input Mass: {selectedSample.initialWeight} kg</Text>
+                
+                {/* 🧪 PORTAL STATE: METRICS REVIEW */}
+                <View style={{ backgroundColor: '#232931', padding: 10, borderRadius: 8, marginBottom: 15, width: '100%' }}>
+                  <Text style={{ color: '#f1c40f', fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>LAB TESTING SPECS:</Text>
+                  <Text style={{ color: '#fff', fontSize: 14 }}>
+                    💧 Moisture Content: {selectedSample.moistureTestResult !== undefined && selectedSample.moistureTestResult !== null ? `${selectedSample.moistureTestResult}%` : 'N/A'}
+                  </Text>
+                  <Text style={{ color: '#fff', fontSize: 14, marginTop: 2 }}>
+                    🧪 Flotation Allocation: {selectedSample.flotationPrepResult !== undefined && selectedSample.flotationPrepResult !== null ? `${selectedSample.flotationPrepResult} kg` : 'N/A'}
+                  </Text>
+                </View>
                 
                 {/* 🟢 SECTION A: APPROVAL INPUT */}
                 <Text style={{ color: '#2ecc71', fontWeight: 'bold', marginBottom: 5 }}>Option 1: Enter Certified Purity Grade to Approve:</Text>
@@ -1704,7 +1727,20 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                     <View key={sample.id} style={[styles.roleBox, { padding: 15, marginBottom: 10 }]}>
                       <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Sample: {sample.sampleId}</Text>
                       <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>Type: {sample.oreType} | Mass: {sample.initialWeight}kg</Text>
-                      <Text style={{ color: '#e67e22', fontSize: 12, fontWeight: 'bold', marginTop: 4 }}>⚠️ Status: {sample.status}</Text>
+                      
+                      {/* 🧪 QUEUE LIST STATE: METRICS SUMMARY DISPLAY */}
+                      {sample.moistureTestResult !== undefined && sample.moistureTestResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
+                          💧 Moisture Content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.moistureTestResult}%</Text>
+                        </Text>
+                      )}
+                      {sample.flotationPrepResult !== undefined && sample.flotationPrepResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
+                          🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} kg</Text>
+                        </Text>
+                      )}
+
+                      <Text style={{ color: '#e67e22', fontSize: 12, fontWeight: 'bold', marginTop: 6 }}>⚠️ Status: {sample.status}</Text>
                       
                       <TouchableOpacity 
                         style={[styles.roleButton, { backgroundColor: '#3498db', marginTop: 12, paddingVertical: 8 }]} 
@@ -1725,10 +1761,10 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
 
   // --- 📜 METALLURGIST ASSAY HISTORY SCREEN ---
-  if (screen === 'assay_history') {
+ if (screen === 'assay_history') {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
@@ -1774,7 +1810,20 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                       <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 6 }}>
                         📦 Ore: {item.oreType} | ⚖️ Mass: {item.initialWeight}kg
                       </Text>
-                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6 }}>
+
+                      {/* 🧪 TRACKING DETAILS: MOISTURE & FLOTATION ENTRIES */}
+                      {item.moistureTestResult !== undefined && item.moistureTestResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
+                          💧 Moisture Content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{item.moistureTestResult}%</Text>
+                        </Text>
+                      )}
+                      {item.flotationPrepResult !== undefined && item.flotationPrepResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
+                          🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{item.flotationPrepResult} kg</Text>
+                        </Text>
+                      )}
+
+                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6, borderTopWidth: 0.5, borderTopColor: '#444', paddingTop: 6 }}>
                         🔬 Inspected By: {item.certifiedBy || 'Certified Metallurgist'}
                       </Text>
                     </View>
@@ -1790,10 +1839,10 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
 
   // --- 📋 LAB TECHNICIAN SAMPLE VIEW PORTAL ---
-  if (screen === 'view_samples') {
+ if (screen === 'view_samples') {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
@@ -1824,7 +1873,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
 
                   return (
                     <View 
-                      key={sample.id} 
+                      key={sample.id || sample.sampleId} 
                       style={[
                         styles.roleBox, 
                         { borderColor: statusColor, borderWidth: 1, marginBottom: 10, padding: 15 }
@@ -1838,6 +1887,19 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                         Ore Matrix: {sample.oreType} | ⚖️ Initial Mass: {sample.initialWeight} kg
                       </Text>
 
+                      {/* 🧪 READ-ONLY LAB ANALYTICS TRACKING */}
+                      {sample.moistureTestResult !== undefined && sample.moistureTestResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
+                          💧 Moisture Content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.moistureTestResult}%</Text>
+                        </Text>
+                      )}
+                      
+                      {sample.flotationPrepResult !== undefined && sample.flotationPrepResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
+                          🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} kg</Text>
+                        </Text>
+                      )}
+
                       {/* Dynamic Status Display */}
                       <Text style={{ color: statusColor, fontWeight: 'bold', marginTop: 6, fontSize: 13 }}>
                         {statusLabel}
@@ -1846,7 +1908,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                       {/* Display context metrics based on what the metallurgist did */}
                       {sample.status === 'Approved' && (
                         <Text style={{ color: '#fff', fontSize: 13, marginTop: 4, fontWeight: '500' }}>
-                          💎 Certified Purity: {sample.purityGrade}
+                          💎 Certified Purity: {sample.purityGrade || sample.purity}
                         </Text>
                       )}
                       
@@ -1856,7 +1918,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                         </Text>
                       )}
 
-                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6 }}>
+                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6, borderTopWidth: 0.5, borderTopColor: '#333', paddingTop: 6 }}>
                         Logged By: {sample.loggedBy || "Lab Technician"}
                       </Text>
                     </View>
@@ -1872,7 +1934,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
         </View>
       </SafeAreaProvider>
     );
-  }
+}
   
   // --- MAIN LAYOUT GATE (DASHBOARD, PROFILE, LOGIN) ---
   const userRole = role ? role.toLowerCase().trim() : '';
@@ -1971,36 +2033,38 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
   }
   
   // 🧪 2. LAB TECHNICIAN MAIN WORKSPACE
-  if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole === 'lab technician')) {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>{companyName} - TECHNICIAN</Text>
+if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole === 'lab technician')) {
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+        <SafeAreaView style={styles.container}>
+          <Text style={styles.title}>EM-Lab</Text>
+          <Text style={styles.subtitle}>{companyName} - TECHNICIAN</Text>
 
-            <View style={styles.roleBox}>
-              <Text style={styles.roleTitle}>Technician Portal</Text>
-              <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_sample')}>
-                <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={() => fetchMineralSamples(companyName, true)} 
->
-                <Text style={styles.buttonText}>📋 View Logged Samples</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.roleBox}>
+            <Text style={styles.roleTitle}>Technician Portal</Text>
+            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_sample')}>
+              <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
+              onPress={() => fetchMineralSamples(companyName, true)} 
+            >
+              <Text style={styles.buttonText}>📋 View Logged Samples</Text>
+            </TouchableOpacity>
+          </View>
 
-            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
-              <Text style={styles.buttonText}>View Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
-              <Text style={styles.buttonText}>Logout</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
+          <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
+            <Text style={styles.buttonText}>View Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
+            <Text style={styles.buttonText}>Logout</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+    </SafeAreaProvider>
+  );
+}
 
   // 🌋 3. FURNACE OPERATOR MAIN WORKSPACE
   if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRole === 'furnace operator')) {
