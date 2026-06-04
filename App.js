@@ -2353,7 +2353,12 @@ if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRo
   }
 
 
+
+
+
+
   
+
 
   // 🔑 6. BASELINE CATCH-ALL DEFAULT INTERFACE (FALLBACK TO LOGIN IF NO ROLE ACTIVE)
   return (
