@@ -166,3 +166,69 @@ If no side effects exist, write: `⚠️ SIDE EFFECTS: None identified.`
 ---
 
 *This prompt governs all AI-assisted development on the EM-Lab codebase. It must be included at the start of every agent session.*
+
+D:.
+│   .gitignore
+│   App.js
+│   app.json
+│   babel.config.js
+│   firebase.json
+│   firestore.indexes.json
+│   firestore.rules
+│   metro.config.js
+│   package-lock.json
+│   README.md
+│   package.json
+│
+├───.expo
+│   │   devices.json
+│   │   README.md
+│   │
+│   └───web
+│       └───cache
+│           └───production
+│               └───images
+│                   └───favicon
+│                       └───favicon-24272cdaeff82cc5facdaccd982a6f05b60c4504704bbf94c19a6388659880bb-contain-transparent
+│                               favicon-48.png
+│
+├───assets
+│       adaptive-icon.png
+│       favicon.png
+│       icon.png
+│       splash-icon.png
+│
+├───docs
+│       BuildtechInnovators_SRS_I3691CP.docx
+│       BuildtechInnovators_SRS_I3691CP.pdf
+│
+└───src
+    ├───api
+    │       auth.js
+    │       data.js
+    │
+    ├───screens
+    │   │   LogSampleScreen.js
+    │   │   FurnaceOperatorDashboard.js
+    │   │   FurnaceDirectoryScreen.js
+    │   │   SampleDirectoryScreen.js
+    │   │
+    │   ├───Admin
+    │   │       SystemSettingsScreen.js
+    │   │       SupportCenterScreen.js
+    │   │       StaffDirectoryScreen.js
+    │   │
+    │   └───Auth
+    │           SignupScreen.js
+    │
+    ├───config
+    │       firebaseConfig.js
+    │
+    ├───utils
+    │       constants.js
+    │
+    ├───components
+    │       LaboratoryLockdownScreen.js
+    │
+    └───styles
+            globalStyles.js
