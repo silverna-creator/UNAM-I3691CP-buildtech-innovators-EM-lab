@@ -1,7 +1,7 @@
 {
   "name": "em-lab-fresh",
   "version": "1.0.0",
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -9,19 +9,23 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "1.18.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-picker/picker": "2.11.1",
     "@react-navigation/native": "^7.2.2",
     "@react-navigation/stack": "^7.8.10",
-    "expo": "^49.0.23",
-    "expo-status-bar": "~1.6.0",
+    "expo": "~54.0.0",
+    "expo-status-bar": "~3.0.0",
     "firebase": "^12.13.0",
-    "react": "18.2.0",
-    "react-native": "0.72.10",
-    "react-native-safe-area-context": "4.6.3",
-    "react-native-screens": "~3.22.0",
-    "react-native-web": "~0.19.6",
-    "react-dom": "18.2.0",
-    "@expo/webpack-config": "^19.0.0"
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-gesture-handler": "~2.28.0",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "babel-preset-expo": "~54.0.0"
   },
   "private": true
 }

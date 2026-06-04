@@ -1,53 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Alert, 
-  ScrollView, 
-  KeyboardAvoidingView, 
-  Platform 
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { 
-  getAuth, 
-  initializeAuth,
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  onAuthStateChanged, 
-  sendPasswordResetEmail, 
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-  updatePassword, browserLocalPersistence, signOut
-} from "firebase/auth";
-
-import { getFirestore, doc, setDoc, getDoc, query, collection, where, getDocs, addDoc, updateDoc, serverTimestamp, deleteDoc, arrayUnion } from "firebase/firestore";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
-// --- CONFIGURATION ---
-const firebaseConfig = {
-  apiKey: "AIzaSyAmjvhlExpJwEfkd1Dx0dnJm5cpkwfnOc8",
-  authDomain: "em-lab-app.firebaseapp.com",
-  databaseURL: "https://em-lab-app-default-rtdb.firebaseio.com",
-  projectId: "em-lab-app",
-  storageBucket: "em-lab-app.firebasestorage.app",
-  messagingSenderId: "388695420434",
-  appId: "1:388695420434:web:e0111e1b03221bc353b2cb",
-  measurementId: "G-D0YZ74XX6G"
-};
-
-const ORE_DATABASE = {
-  SULFIDES: ["Chalcopyrite (Cu)", "Galena (Pb)", "Sphalerite (Zn)", "Pyrite (Fe)"],
-  OXIDES: ["Hematite (Fe)", "Magnetite (Fe)", "Chromite (Cr)", "Bauxite (Al)"],
-  NATIVE: ["Gold (Au)", "Silver (Ag)", "Copper (Cu)"],
-  CARBONATES: ["Malachite (Cu)", "Azurite (Cu)", "Calcite (Ca)"]
-};
-
+import { getStaffList, deleteStaffMember } from './src/api/data';
+import LaboratoryLockdownScreen from './src/components/LaboratoryLockdownScreen';
+import LogSampleScreen from './src/screens/LogSampleScreen';
+import { styles } from './src/styles/globalStyles';
 // ==========================================
 // 🚨 GLOBAL CRASH BOUNDARY ENGINE
 // ==========================================
@@ -72,31 +30,6 @@ class CodeCrashBoundary extends React.Component {
   }
 }
 
-// --- SAFE INITIALIZATION ---
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-
-// --- AUTH INITIALIZATION (UPDATED) ---
-let auth;
-
-if (Platform.OS === 'web') {
-  // 🌐 Explicitly tell the browser to remember who is logged in
-  auth = initializeAuth(app, {
-    persistence: browserLocalPersistence,
-  });
-} else {
-  // 📱 Use mobile AsyncStorage persistence for Android / iOS engines
-  try {
-    // Changing 'firebase/auth/react-native' to 'firebase/auth' fixes the web compiler error
-    const { getReactNativePersistence } = require('firebase/auth');
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
-  } catch (e) {
-    auth = getAuth(app);
-  }
-}
-
-const db = getFirestore(app);
 
 export default function App() {
   const [staffList, setStaffList] = useState([]);
@@ -142,8 +75,6 @@ const [selectedOre, setSelectedOre] = useState('');
   const [cycleDuration, setCycleDuration] = useState('');
   const [furnaceLogs, setFurnaceLogs] = useState([]);
 
-  const [selectedMeltSample, setSelectedMeltSample] = useState(null)
-
   // Metallurgist State Hooks
   const [pendingSamples, setPendingSamples] = useState([]);
   const [selectedSample, setSelectedSample] = useState(null);
@@ -155,12 +86,13 @@ const [selectedOre, setSelectedOre] = useState('');
 
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const [moistureValue, setMoistureValue] = useState('');     // For moisture test %
-const [flotationValue, setFlotationValue] = useState('');   // For flotation prep kg
+  const [moistureValue, setMoistureValue] = useState('');
+  const [flotationValue, setFlotationValue] = useState('');
 
-const [approvedMeltQueue, setApprovedMeltQueue] = useState([]);
+  const [selectedMeltSample, setSelectedMeltSample] = useState(null);
+  const [currentTempInput, setCurrentTempInput] = useState('');
+  const [cycleDurationInput, setCycleDurationInput] = useState('');
 
-const [isLoading, setIsLoading] = useState(false);
 
  useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -199,7 +131,7 @@ const [isLoading, setIsLoading] = useState(false);
           setFullName(userData.fullName || "");
           
           const userRole = userData.role ? userData.role.toLowerCase().trim() : "";
-          setRole(userRole);
+          setRole(userData.role ? userData.role.trim() : "");
           
           // 🛡️ DYNAMIC MULTI-TENANT VERIFICATION
           if (!userData.company || userData.company.trim() === "") {
@@ -210,11 +142,11 @@ const [isLoading, setIsLoading] = useState(false);
             return;
           }
 
-          const userCompany = userData.company.trim();
+          const userCompany = normalizeCompany(userData.company);
           setCompanyName(userCompany);
           
           // 🚦 3. THE SMART ROUTER GATEWAY (WITH REFRESH DEFENSE)
-          if (userRole === 'admin') {
+          if (isAdminRole(userData.role)) {
             setScreen('dashboard'); 
             fetchLiveFurnaceTelemetry(userCompany);
           } else {
@@ -226,11 +158,11 @@ const [isLoading, setIsLoading] = useState(false);
               setScreen('lab_technician_dashboard'); 
               fetchMineralSamples(userCompany);
             } else if (userRole === 'furnace operator') {
-              setScreen('furnace_operator_dashboard'); 
+              setScreen('furnace_operator_dashboard');
+              fetchApprovedMeltQueue(userCompany);
             } else if (userRole === 'metallurgist') {
               console.log("Routing to Metallurgist Portal, pulling queue files...");
               setScreen('metallurgist_dashboard'); 
-              fetchMineralSamples(userCompany); 
             } else {
               setScreen('login');
             }
@@ -273,7 +205,8 @@ const [isLoading, setIsLoading] = useState(false);
         
         // 3. Set global user states
         if (userData.fullName) setFullName(userData.fullName);
-        if (userData.company) setCompanyName(userData.company);
+        const normalizedCompany = normalizeCompany(userData.company);
+        if (normalizedCompany) setCompanyName(normalizedCompany);
         if (userData.role) setRole(userData.role);
 
         // Normalize the role text for safe string checking
@@ -281,14 +214,17 @@ const [isLoading, setIsLoading] = useState(false);
         console.log("LOGGED IN USER PROFILE DETECTED:", userData);
 
         // 4. ROUTING TERMINALS: Direct routing based on exact role strings
-        if (cleanRole === 'admin') {
+        if (isAdminRole(userData.role)) {
           setScreen('dashboard');
+          fetchLiveFurnaceTelemetry(normalizedCompany);
         } else if (cleanRole === 'lab technician') {
           setScreen('lab_technician_dashboard');
+          fetchMineralSamples(normalizedCompany);
         } else if (cleanRole === 'furnace operator') {
           setScreen('furnace_operator_dashboard');
+          fetchApprovedMeltQueue(normalizedCompany);
         } else if (cleanRole === 'metallurgist') {
-          setScreen('metallurgist_dashboard'); // 🔬 Add this line!
+          setScreen('metallurgist_dashboard');
         } else {
           // If role is corrupted or unexpected
           const unknownMsg = `Profile role mismatch: "${userData.role}". Contact your system admin.`;
@@ -334,69 +270,76 @@ const [isLoading, setIsLoading] = useState(false);
     setCompanyName('');
     setEmail('');
     setPassword('');
+    setSelectedMeltSample(null);
+    setCurrentTempInput('');
+    setCycleDurationInput('');
     setScreen('login');
   };
 
   const handleSignup = async () => {
-    // 🛡️ Use the dedicated regCompany state to prevent multi-tenant data bleeding
-    const normalizedCompany = regCompany ? regCompany.toUpperCase().trim() : '';
-    const adminUser = auth.currentUser; 
-    const assignedRole = adminUser ? regRole : 'Admin'; 
+    const adminUser = auth.currentUser;
+    const normalizedCompany = normalizeCompany(regCompany)
+      || normalizeCompany(companyName);
+    const assignedRole = adminUser
+      ? (regRole ? regRole.trim() : '')
+      : 'Admin';
 
     if (!regEmail || !regPassword || !regName || !assignedRole || !normalizedCompany) {
-      const msg = 'Please fill in all fields before submitting registration.';
+      const msg = adminUser && !normalizeCompany(regCompany) && !normalizeCompany(companyName)
+        ? 'Company name is missing from your admin profile. Log out and back in, or enter a company name.'
+        : 'Please fill in all fields before submitting registration.';
       Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
       return;
     }
 
     try {
       let newUserUid;
+      let secondaryAuth = null;
 
       if (adminUser) {
-        // Staff creation path for currently logged-in Admin manager
         const secondaryAppName = `SilentApp_${Math.random().toString(36).substring(7)}`;
         const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
-        const secondaryAuth = getAuth(secondaryApp);
+        secondaryAuth = getAuth(secondaryApp);
 
-        // 1. Create the credentials in the cloud auth system
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, regEmail, regPassword);
         newUserUid = userCredential.user.uid;
 
-        // 2. Await the database confirmation completely before moving forward
         await setDoc(doc(db, "users", newUserUid), {
           fullName: regName,
           company: normalizedCompany,
           role: assignedRole,
           email: regEmail,
-          createdAt: new Date()
+          createdAt: new Date().toISOString()
         });
 
-        // 3. Only sign out the background channel after the database explicitly finishes writing
         try {
           await secondaryAuth.signOut();
         } catch (signOutError) {
           console.log("Non-blocking secondary signout clean:", signOutError.message);
         }
       } else {
-        // Fresh sign up path: check if this company name is already registered in the ecosystem
-        const companyQuery = query(collection(db, "users"), where("company", "==", normalizedCompany));
+        const userCredential = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
+        newUserUid = userCredential.user.uid;
+
+        const companyQuery = query(
+          collection(db, "users"),
+          where("company", "==", normalizedCompany)
+        );
         const querySnapshot = await getDocs(companyQuery);
-        if (!querySnapshot.empty) {
+        const takenByOther = querySnapshot.docs.some((d) => d.id !== newUserUid);
+        if (takenByOther) {
+          await deleteUser(userCredential.user);
           const msg = "This Company Name is already registered on our network.";
           Platform.OS === 'web' ? alert(msg) : Alert.alert("Name Taken", msg);
           return;
         }
 
-        const userCredential = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
-        newUserUid = userCredential.user.uid;
-
-        // Regular signup path also writes to Firestore here
         await setDoc(doc(db, "users", newUserUid), {
           fullName: regName,
           company: normalizedCompany,
           role: assignedRole,
           email: regEmail,
-          createdAt: new Date()
+          createdAt: new Date().toISOString()
         });
       }
 
@@ -433,7 +376,11 @@ const [isLoading, setIsLoading] = useState(false);
       console.log("CURRENT ADMIN COMPANY STATE:", companyName); 
       console.log("====================================");
 
-      const errorMsg = `Registration Failed: ${error.message}`;
+      let errorMsg = `Registration Failed: ${error.message}`;
+      if (error.code === 'permission-denied') {
+        errorMsg =
+          'Registration Failed: Firestore denied this write. Deploy firestore.rules from this project (firebase deploy --only firestore:rules) or update rules in the Firebase Console so admins can create staff profiles.';
+      }
       Platform.OS === 'web' ? alert(errorMsg) : Alert.alert('Error', errorMsg);
     }
   };
@@ -467,41 +414,6 @@ const [isLoading, setIsLoading] = useState(false);
       Alert.alert("Error", "Authentication failed.");
     }
   };
-
-  const LaboratoryLockdownScreen = ({ onCheckStatus, onReturnToLogin }) => (
-  <SafeAreaProvider>
-    <View style={{ flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', alignItems: 'center' }}>
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-        <Text style={[styles.title, { color: '#e74c3c', fontSize: 32 }]}>⚠️ SYSTEM LOCKDOWN</Text>
-        <Text style={[styles.subtitle, { textAlign: 'center', marginTop: 10, color: '#c8d4e6' }]}>
-          The Laboratory Administrator has temporarily paused operations or triggered an emergency safety override.
-        </Text>
-        
-        <View style={[styles.roleBox, { borderColor: '#e74c3c', borderWidth: 1, marginTop: 20, padding: 20, alignItems: 'center' }]}>
-          <Text style={{ color: '#fff', textAlign: 'center', fontSize: 14, lineHeight: 20 }}>
-            All incoming mineral sample logging, assay certifications, and furnace melt cycles are strictly frozen until system clearance is restored.
-          </Text>
-        </View>
-
-        {/* 🔄 Button 1: Re-check status if they are waiting for the admin to flip it back on */}
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: '#2ecc71', marginTop: 30, width: '80%' }]} 
-          onPress={onCheckStatus}
-        >
-          <Text style={styles.buttonText}>🔄 Re-check System Status</Text>
-        </TouchableOpacity>
-
-        {/* 🚪 Button 2: Clean exit back to login so you can switch back to the Admin account smoothly */}
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: '#475569', marginTop: 12, width: '80%' }]} 
-          onPress={onReturnToLogin}
-        >
-          <Text style={styles.buttonText}>🚪 Return to Login Screen</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    </View>
-  </SafeAreaProvider>
-);
 
 const handleLockdownExit = async () => {
   try {
@@ -569,7 +481,7 @@ const fetchSystemSettingsStatus = async () => {
       
       // Assuming you track the current logged-in user's company profile locally (e.g. currentCompanyState)
       // If not, we can pull it directly from their local state variable setup.
-      const companyTag = companyName || "Unknown Tenant Domain"; 
+      const companyTag = normalizeCompany(companyName) || "Unknown Tenant Domain"; 
 
       await addDoc(collection(db, "support_tickets"), {
         adminEmail: currentAdmin?.email,
@@ -610,7 +522,7 @@ const fetchStaffDirectory = async () => {
       // 3. Query using the live, dynamic companyName state directly
       const staffQuery = query(
         collection(db, "users"), 
-        where("company", "==", companyName)
+        where("company", "==", normalizeCompany(companyName))
       );
       
       const querySnapshot = await getDocs(staffQuery);
@@ -649,17 +561,15 @@ const fetchStaffDirectory = async () => {
     }
 
     try {
-      // 🛡️ RECOVER DYNAMIC MULTI-TENANT COMPANY SCOPE
-      let operationalCompany = "UNAM"; 
-      if (companyName && companyName.trim() !== "") {
-        operationalCompany = companyName.trim();
-      } else if (auth.currentUser && auth.currentUser.email) {
-        operationalCompany = auth.currentUser.email.split('@')[1].split('.')[0].toUpperCase();
+      let operationalCompany = normalizeCompany(companyName);
+      if (!operationalCompany && auth.currentUser?.email) {
+        operationalCompany = normalizeCompany(auth.currentUser.email.split('@')[1].split('.')[0]);
       }
+      if (!operationalCompany) operationalCompany = 'UNAM';
 
-      console.log(`🔒 SECURE PIPELINE ACTIVE: Logging sample for tenant space [${operationalCompany.toUpperCase()}]`);
+      console.log(`🔒 SECURE PIPELINE ACTIVE: Logging sample for tenant space [${operationalCompany}]`);
 
-      const cleanCompany = operationalCompany.toUpperCase().trim();
+      const cleanCompany = operationalCompany;
       const cleanSampleId = sampleId.trim().toUpperCase();
       
       // 🎯 GENERATE COMPOSITE CUSTOM ID KEY
@@ -721,9 +631,9 @@ const fetchStaffDirectory = async () => {
 };
   
 const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) => {
-    // 🏎️ RACE CONDITION BYPASS: Use the parameter string if passed during login, 
-    // otherwise fall back seamlessly to your state variable or filter out event objects.
-    const activeCompany = (passedCompany && typeof passedCompany === 'string') ? passedCompany : companyName;
+    const activeCompany = normalizeCompany(
+      (passedCompany && typeof passedCompany === 'string') ? passedCompany : companyName
+    );
 
     try {
       console.log(`🔍 Fetching company logs from mineral_samples for: [${activeCompany || 'GLOBAL'}]...`);
@@ -731,7 +641,7 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
       let q;
 
       // 🛡️ Safe Multi-Tenant Filter Check
-      if (activeCompany && activeCompany.trim() !== "") {
+      if (activeCompany) {
         console.log(`Filtering logs for company: "${activeCompany}"`);
         q = query(samplesRef, where("company", "==", activeCompany));
       } else {
@@ -758,160 +668,157 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
   };
 
   // 1. Commit Melt Cycle to Firestore
-const logMeltCycle = async (e) => {
-  if (e && e.preventDefault) e.preventDefault();
+  const logMeltCycle = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
 
-  if (!meltId.trim() || !furnaceTemp.trim() || !cycleDuration.trim()) {
-    const msg = "Please fill in all melt cycle details.";
-    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+    if (!meltId.trim() || !furnaceTemp.trim() || !cycleDuration.trim()) {
+      const msg = "Please fill in all melt cycle details.";
+      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+      return;
+    }
+
+    try {
+      const cleanMeltId = meltId.trim().toUpperCase();
+
+      // 🔍 MATCHING THE EXACT FIELDS: Search furnaceLogs using displayId or sampleId
+      const linkedSample = furnaceLogs.find(sample => 
+        (sample.id && sample.id.toUpperCase() === cleanMeltId) ||
+        (sample.displayId && sample.displayId.toUpperCase() === cleanMeltId) || 
+        (sample.sampleId && sample.sampleId.toUpperCase() === cleanMeltId)
+      );
+
+      // Extract the exact field names from your Firestore snapshot structure
+      const finalOreType = linkedSample ? (linkedSample.oreType || "Not Classified") : "Not Classified";
+      const finalWeight = linkedSample ? (parseFloat(linkedSample.initialWeight) || 0) : 0;
+      const finalMoisture = linkedSample && linkedSample.moistureTestResult !== undefined ? linkedSample.moistureTestResult : null;
+      const finalFlotation = linkedSample && linkedSample.flotationPrepResult !== undefined ? linkedSample.flotationPrepResult : null;
+
+      const meltData = {
+        meltId: cleanMeltId,
+        temperature: parseFloat(furnaceTemp),
+        durationMinutes: parseInt(cycleDuration),
+        company: normalizeCompany(companyName),
+        loggedBy: fullName,
+        createdAt: new Date().toISOString(),
+
+        // 💾 SAVING WITH YOUR EXACT FIELD VALUES
+        oreType: finalOreType,
+        initialWeight: finalWeight,
+        moistureTestResult: finalMoisture,
+        flotationPrepResult: finalFlotation
+      };
+
+      await addDoc(collection(db, "furnace_operations"), meltData);
+      
+      const successMsg = `Melt Cycle ${cleanMeltId} logged successfully!`;
+      Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
+      
+      setMeltId('');
+      setFurnaceTemp('');
+      setCycleDuration('');
+      
+      if (typeof fetchFurnaceOperations === 'function') fetchFurnaceOperations(); 
+    } catch (error) {
+      console.error("Error logging melt cycle:", error);
+    }
+  };
+
+  const fetchFurnaceOpsByCompany = async (company) => {
+    const norm = normalizeCompany(company);
+    if (!norm) return [];
+
+    const opsRef = collection(db, "furnace_operations");
+    const [companySnap, legacySnap] = await Promise.all([
+      getDocs(query(opsRef, where("company", "==", norm))),
+      getDocs(query(opsRef, where("companyId", "==", norm))),
+    ]);
+
+    const byId = new Map();
+    companySnap.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() }));
+    legacySnap.forEach((d) => {
+      if (!byId.has(d.id)) byId.set(d.id, { id: d.id, ...d.data() });
+    });
+    return Array.from(byId.values());
+  };
+
+  // 2. Fetch Historical Melt Runs
+  const fetchFurnaceOperations = async () => {
+    if (!normalizeCompany(companyName)) return;
+
+    try {
+      const logs = await fetchFurnaceOpsByCompany(companyName);
+      logs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setFurnaceLogs(logs);
+      setScreen('furnace_directory');
+    } catch (error) {
+      console.error("Error retrieving furnace operations:", error);
+    }
+  };
+
+ const fetchApprovedMeltQueue = async (targetCompany) => {
+  const cleanCompany = normalizeCompany(
+    typeof targetCompany === 'string' ? targetCompany : companyName
+  );
+
+  if (!cleanCompany) {
+    console.log("Cannot fetch queue: Company profile name is empty.");
     return;
   }
 
   try {
-    const cleanMeltId = meltId.trim().toUpperCase();
-
-    // 1. LOOKUP: Find the sample in the isolated queue
-    const linkedSample = approvedMeltQueue.find(sample => 
-      (sample.meltId && sample.meltId.toUpperCase() === cleanMeltId) ||
-      (sample.displayId && sample.displayId.toUpperCase() === cleanMeltId) || 
-      (sample.sampleId && sample.sampleId.toUpperCase() === cleanMeltId)
+    const q = query(
+      collection(db, "mineral_samples"), 
+      // 🟢 CHANGED FROM "companyId" TO "company" TO MATCH YOUR FIRESTORE KEY EXPLICITLY:
+      where("company", "==", cleanCompany),
+      where("status", "==", "Approved") 
     );
-
-    // 2. DEBUG: Click the object in your console to see if moisture/flotation fields exist
-    console.log(linkedSample 
-      ? `DEBUG: FOUND SAMPLE [${cleanMeltId}]:` 
-      : `DEBUG: FAILED TO FIND SAMPLE [${cleanMeltId}]`, 
-      linkedSample || "Object is null/undefined"
-    );
-
-    // 3. EXTRACTION: Safely grab the values
-    const finalOreType = linkedSample?.oreType ?? "Not Classified";
-    const finalWeight = parseFloat(linkedSample?.initialWeight) || 0;
-    const finalMoisture = linkedSample?.moistureTestResult ?? null;
-    const finalFlotation = linkedSample?.flotationPrepResult ?? null;
-
-    // 4. PREPARE DATA
-    const meltData = {
-      meltId: cleanMeltId,
-      temperature: parseFloat(furnaceTemp),
-      durationMinutes: parseInt(cycleDuration),
-      companyId: companyName, 
-      loggedBy: fullName || "Furnace Operator",
-      timestamp: new Date().toISOString(),
-      oreType: finalOreType,
-      initialWeight: finalWeight,
-      moistureTestResult: finalMoisture,
-      flotationPrepResult: finalFlotation
-    };
-
-    // 5. WRITE & CLEANUP
-    await addDoc(collection(db, "furnace_operations"), meltData);
     
-    const successMsg = `Melt Cycle ${cleanMeltId} logged successfully!`;
-    Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
-    
-    setMeltId('');
-    setFurnaceTemp('');
-    setCycleDuration('');
-    
-    if (typeof fetchFurnaceOperations === 'function') fetchFurnaceOperations(); 
-  } catch (error) {
-    console.error("Error logging melt cycle:", error);
-    alert("Error saving record. Check console for details.");
-  }
-};
-
-  // 🟢 UPGRADED & NORMALIZED HISTORICAL FETCH (FULLY SYNCHRONIZED WITH UI KEYS)
-const fetchFurnaceOperations = async () => {
-  if (!companyName) return;
-
-  try {
-    console.log(`📡 Querying furnace_operations for company: [${companyName}]...`);
-    const furnaceQuery = query(
-      collection(db, "furnace_operations"),
-      where("companyId", "==", companyName)
-    );
-
-    const querySnapshot = await getDocs(furnaceQuery);
-    const logs = [];
+    const querySnapshot = await getDocs(q);
+    const samples = [];
     
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      
-      logs.push({ 
-        id: doc.id, 
+      samples.push({
+        id: doc.id,
         ...data,
-        meltId: data.meltId || data.sampleId || "Unknown Batch",
-        temperature: data.temperature ?? data.currentTemperature ?? 0,
-        durationMinutes: data.durationMinutes ?? data.cycleDurationTime ?? "Not Specified",
-        oreType: data.oreType || "Not Classified",
-        initialWeight: data.initialWeight !== undefined ? data.initialWeight : (data.initialMass !== undefined ? data.initialMass : 0),
+        sampleId: data.sampleId || '',
+        displayId: data.displayId || '',
+        oreType: data.oreType || 'Unclassified',
+        initialWeight: data.initialWeight || 0,
         moistureTestResult: data.moistureTestResult !== undefined ? data.moistureTestResult : null,
-        flotationPrepResult: data.flotationPrepResult !== undefined ? data.flotationPrepResult : null,
-        
-        // 🟢 FIXED: Kept as loggedBy so item.loggedBy pulls perfectly in the furnace_directory screen
-        loggedBy: data.loggedBy || data.executedBy || "Furnace Operator"
+        flotationPrepResult: data.flotationPrepResult !== undefined ? data.flotationPrepResult : null
       });
     });
-
-    // 🟢 FIXED SORTING: Uses a fallback to data.timestamp so older/newer entry types sort correctly
-    logs.sort((a, b) => new Date(b.timestamp || b.createdAt || 0) - new Date(a.timestamp || a.createdAt || 0));
     
-    setFurnaceLogs(logs);
-    setScreen('furnace_directory'); 
-    console.log(`✅ Historical logs parsed and synchronized: ${logs.length} runs.`);
+    setFurnaceLogs(samples); 
+    console.log(`Successfully pulled ${samples.length} approved samples for ${cleanCompany}`);
   } catch (error) {
-    console.error("Error retrieving furnace operations:", error);
+    console.error("Error fetching approved queue: ", error);
   }
 };
 
-
 const updateFurnaceTelemetry = async () => {
   if (!currentTempInput.trim()) return;
-  console.log("DEBUG: What is inside selectedMeltSample right now?", selectedMeltSample);
 
   try {
-    // 🟢 FIXED: Fallback chain to ensure it targets the correct custom composite document ID
-    const targetDocId = selectedMeltSample.meltId || selectedMeltSample.sampleId || selectedMeltSample.displayId || selectedMeltSample.id;
-    console.log("Targeting document ID for update:", targetDocId);
-
-    const docRef = doc(db, "mineral_samples", targetDocId);
+    const docRef = doc(db, "mineral_samples", selectedMeltSample.id);
+    
+    // Create a time-stamped log entry object
     const newLogEntry = {
       temperature: parseFloat(currentTempInput),
       loggedAt: new Date().toISOString(),
       durationSoFar: cycleDurationInput || "Not Specified"
     };
 
-    // This will now execute successfully without failing
     await updateDoc(docRef, {
+      // 📈 Append to the history array smoothly
       temperatureLogs: arrayUnion(newLogEntry),
       currentTemperature: parseFloat(currentTempInput),
       lastFurnaceUpdate: new Date().toISOString(),
-      status: "In Melt Cycle" 
+      status: "In Melt Cycle" // Changes status so technicians know it's cooking!
     });
 
-    // 🟢 2. This block will now run smoothly and save your data fields!
-    const operationsRef = collection(db, "furnace_operations");
-    await addDoc(operationsRef, {
-      companyId: companyName,
-      meltId: targetDocId,
-      
-      // Matches item.temperature and item.durationMinutes in UI
-      temperature: parseFloat(currentTempInput),
-      durationMinutes: cycleDurationInput || "Not Specified",
-      
-      // Matches item.loggedBy in UI
-      loggedBy: fullName || "Penny Muyateka",
-      timestamp: new Date().toISOString(),
-
-      // Material tracking attributes saved directly into the historical log
-      oreType: selectedMeltSample.oreType || "Not Classified",
-      initialWeight: parseFloat(selectedMeltSample.initialWeight) || 0,
-      moistureTestResult: selectedMeltSample.moistureTestResult !== undefined ? selectedMeltSample.moistureTestResult : null,
-      flotationPrepResult: selectedMeltSample.flotationPrepResult !== undefined ? selectedMeltSample.flotationPrepResult : null
-    });
-
-    // Update local context arrays
+    // Refresh our local selection state so the UI updates live
     setSelectedMeltSample(prev => ({
       ...prev,
       temperatureLogs: prev.temperatureLogs ? [...prev.temperatureLogs, newLogEntry] : [newLogEntry],
@@ -919,110 +826,39 @@ const updateFurnaceTelemetry = async () => {
     }));
 
     setCurrentTempInput('');
-    alert("🔥 Telemetry saved successfully with matched UI parameters!");
-    
-    if (typeof fetchFurnaceOperations === 'function') fetchFurnaceOperations();
+    alert("🔥 Furnace telemetry log updated successfully!");
   } catch (error) {
     console.error("Error writing furnace telemetry:", error);
-    alert("⚠️ Failed to update furnace record. Check your database connection.");
   }
 };
 
-// 🟢 UPGRADED & NORMALIZED LIVE TELEMETRY FETCH
 const fetchLiveFurnaceTelemetry = async (company) => {
-  try {
-    const targetCompany = company || companyName;
-    if (!targetCompany) return;
+    try {
+      const targetCompany = normalizeCompany(company || companyName);
+      if (!targetCompany) return;
 
-    console.log(`📡 Fetching live telemetry for company: [${targetCompany}]...`);
-    const operationsRef = collection(db, "furnace_operations");
-    const q = query(operationsRef, where("companyId", "==", targetCompany));
-    
-    const querySnapshot = await getDocs(q);
-    const activeMelts = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      
-      // Normalize data layout on the fly
-      activeMelts.push({ 
-        id: doc.id, 
-        ...data,
-        meltId: data.meltId || data.sampleId || "Unknown Batch",
-        temperature: data.temperature ?? data.currentTemperature ?? 0,
-        durationMinutes: data.durationMinutes ?? data.cycleDurationTime ?? "Not Specified",
-        oreType: data.oreType || "Not Classified",
-        initialWeight: data.initialWeight !== undefined ? data.initialWeight : (data.initialMass !== undefined ? data.initialMass : 0),
-        moistureTestResult: data.moistureTestResult !== undefined ? data.moistureTestResult : null,
-        flotationPrepResult: data.flotationPrepResult !== undefined ? data.flotationPrepResult : null,
-        executedBy: data.loggedBy || data.executedBy || "Furnace Operator"
-      });
-    });
-    
-    setFurnaceLogs(activeMelts);
-    console.log(`✅ Live telemetry synchronized: ${activeMelts.length} active runs.`);
-  } catch (error) {
-    console.error("Error fetching live telemetry from furnace_operations:", error);
-  }
-};
-
-// 🟢 NEW: Fetches un-melted, certified batches directly from Collection A (mineral_samples)
-const fetchApprovedMeltQueue = async () => {
-  // 🛡️ Guard Clause: Prevent multiple simultaneous fetches
-  if (!companyName || isLoading) {
-    console.log("Fetch skipped: Company name missing or fetch already in progress.");
-    return;
-  }
-
-  setIsLoading(true); // 🔒 Lock
-
-  try {
-    console.log(`🔍 Fetching approved queue files for: [${companyName}]...`);
-    
-    const q = query(
-      collection(db, "mineral_samples"), 
-      where("company", "==", companyName),
-      where("status", "==", "Approved")
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const approvedSamples = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      approvedSamples.push({
-        id: doc.id,
-        ...data,
-        meltId: data.sampleId || data.displayId || doc.id,
-        oreType: data.oreType || "Not Classified",
-        initialWeight: data.initialWeight || 0,
-        moistureTestResult: data.moistureTestResult ?? null,
-        flotationPrepResult: data.flotationPrepResult ?? null
-      });
-    });
-    
-    // Only update state if the data is different to prevent unnecessary re-renders
-    setApprovedMeltQueue(approvedSamples);
-    console.log(`✅ Successfully loaded ${approvedSamples.length} approved samples into the melt queue.`);
-    
-  } catch (error) {
-    console.error("Error fetching approved melt queue:", error);
-    // Optional: Only clear if there's a critical network error
-  } finally {
-    setIsLoading(false); // 🔓 Unlock
-  }
-};
+      const activeMelts = await fetchFurnaceOpsByCompany(targetCompany);
+      setFurnaceLogs(activeMelts);
+    } catch (error) {
+      console.error("Error fetching live telemetry from furnace_operations:", error);
+    }
+  };
 
   const fetchSamplesForAnalysis = async () => {
-    // 🔥 Force screen transition first so the UI never feels frozen
     setScreen('analysis_queue');
     
     try {
-      console.log("Fetching pending samples from Firestore...");
+      const activeCompany = normalizeCompany(companyName);
+      if (!activeCompany) {
+        setPendingSamples([]);
+        return;
+      }
+
+      console.log(`Fetching pending samples for company: ${activeCompany}`);
       
-      // Replace this next section with your exact Firestore query if different:
       const q = query(
         collection(db, "mineral_samples"), 
+        where("company", "==", activeCompany),
         where("status", "==", "Pending Analysis")
       );
       
@@ -1091,11 +927,7 @@ const fetchApprovedMeltQueue = async () => {
       setRejectionReason('');
       setSelectedSample(null);
       
-      // Reload remaining items and update the historical ledger automatically
-      fetchSamplesForAnalysis(); 
-      if (typeof fetchAssayHistory === 'function') {
-        fetchAssayHistory();
-      }
+      fetchSamplesForAnalysis();
     } catch (error) {
       console.error("Error committing assay update:", error);
       const errorMsg = "Write error tracking failed.";
@@ -1104,26 +936,30 @@ const fetchApprovedMeltQueue = async () => {
   };
   
   const fetchAssayHistory = async () => {
-  // Flip the screen to the history view immediately so it feels snappy
   setScreen('assay_history');
 
   try {
-    console.log("Fetching certified assay records...");
+    const activeCompany = normalizeCompany(companyName);
+    if (!activeCompany) {
+      setAssayHistory([]);
+      return;
+    }
+
+    console.log(`Fetching assay history for company: ${activeCompany}`);
     const q = query(
-      collection(db, "mineral_samples")
+      collection(db, "mineral_samples"),
+      where("company", "==", activeCompany)
     );
 
     const querySnapshot = await getDocs(q);
     const historyLog = [];
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-  // Only include items that are completely finished processing
-  if (data.status === 'Approved' || data.status === 'Declined') { 
-    historyLog.push({ id: doc.id, ...data });
-  }
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.status === 'Approved' || data.status === 'Declined') { 
+        historyLog.push({ id: docSnap.id, ...data });
+      }
     });
 
-    // Sort by dynamic timestamp if available, or just set state
     setAssayHistory(historyLog);
   } catch (error) {
     console.error("Error pulling historical logs:", error);
@@ -1140,419 +976,67 @@ const fetchApprovedMeltQueue = async () => {
     );
   }
 
-  if (screen === 'signup') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-              <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-                <Text style={styles.title}>EM-Lab</Text>
-                <Text style={styles.subtitle}>{auth.currentUser ? "Staff Registration Portal" : "Company Manager Registration"}</Text>
-                 
-                <TextInput style={styles.input} placeholder="Full Name" value={regName} onChangeText={setRegName} placeholderTextColor="#888" />
-                <TextInput style={styles.input} placeholder="Company Name" value={regCompany} onChangeText={setRegCompany} autoCapitalize="none" placeholderTextColor="#888" keyboardType="email-address"
-  autoComplete="off"              // Overrides browser cache scanners
-  importantForAutofill="no"       // Blocks mobile operating framework injection
-  textContentType="none" />
-                
-                {auth.currentUser ? (
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Staff Role (e.g. Lab Technician)" 
-                    value={regRole} 
-                    onChangeText={setRegRole} 
-                    placeholderTextColor="#888" 
-                  />
-                ) : (
-                  <View style={[styles.roleBox, { marginTop: 0, marginBottom: 15, borderColor: '#f1c40f', backgroundColor: 'rgba(241, 196, 15, 0.1)', borderWidth: 1, padding: 15, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }]}>
-                    <Text style={{ fontSize: 24, marginRight: 12 }}>🛡️</Text>
-                    <View>
-                      <Text style={{ color: '#f1c40f', fontWeight: 'bold', fontSize: 14 }}>SECURITY VERIFIED</Text>
-                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '500' }}>Role: Company Administrator</Text>
-                    </View>
-                  </View>
-                )}
+  {screen === 'signup' && (
+  <SignupScreen 
+    isLoggedIn={!!auth.currentUser}
+    regName={regName} setRegName={setRegName}
+    regCompany={regCompany} setRegCompany={setRegCompany}
+    regRole={regRole} setRegRole={setRegRole}
+    regEmail={regEmail} setRegEmail={setRegEmail}
+    regPassword={regPassword} setRegPassword={setRegPassword}
+    onRegister={handleSignup}
+    onBack={() => auth.currentUser ? setScreen('dashboard') : setScreen('login')}
+  />
+)}
 
-                <TextInput style={styles.input} placeholder="Email" value={regEmail} onChangeText={setRegEmail} autoCapitalize="none" placeholderTextColor="#888" />
-                <TextInput style={styles.input} placeholder="Password" value={regPassword} onChangeText={setRegPassword} secureTextEntry placeholderTextColor="#888" autoCapitalize="none" autoComplete="new-password"     // Directs browser engines to treat this as a fresh unlinked pass field
-  importantForAutofill="no"       // Drops device hardware level profile cache reads
-  textContentType="none" />
+  {screen === 'support_center' && (
+  <SupportCenterScreen 
+    ticketText={ticketText}
+    setTicketText={setTicketText}
+    onSubmit={handleSubmitTicket}
+    onCancel={() => { setTicketText(''); setScreen('dashboard'); }}
+  />
+)}
 
-                <TouchableOpacity style={styles.loginButton} onPress={handleSignup}>
-                  <Text style={styles.loginButtonText}>Register</Text>
-                </TouchableOpacity>
+  {screen === 'log_sample' && (
+  <LogSampleScreen 
+    sampleId={sampleId} setSampleId={setSampleId}
+    initialWeight={initialWeight} setInitialWeight={setInitialWeight}
+    selectedGroup={selectedGroup} setSelectedGroup={setSelectedGroup}
+    selectedOre={selectedOre} setSelectedOre={setSelectedOre}
+    moistureValue={moistureValue} setMoistureValue={setMoistureValue}
+    flotationValue={flotationValue} setFlotationValue={setFlotationValue}
+    onLogSample={logMineralSample} 
+    onBack={() => setScreen('lab_technician_dashboard')}
+  />
+)}
 
-                <TouchableOpacity onPress={() => auth.currentUser ? setScreen('dashboard') : setScreen('login')}>
-                  <Text style={styles.switchText}>{auth.currentUser ? "Back to Dashboard" : "Back to Login"}</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
+{screen === 'sample_directory' && (
+  <SampleDirectoryScreen 
+    loggedSamples={loggedSamples} 
+    onBack={() => setScreen('lab_technician_dashboard')} 
+  />
+)}
 
-  if (screen === 'staff_directory') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>Staff Directory</Text>
-            <Text style={styles.subtitle}>Managing Laboratory Personnel</Text>
+{screen === 'staff_directory' && (
+  <StaffDirectoryScreen 
+    staffList={staffList}
+    auth={auth}
+    onDeleteStaff={handleDeleteStaff}
+    onBack={() => setScreen('dashboard')}
+  />
+)}
 
-            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-              {staffList.length === 0 ? (
-                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No staff members found.</Text>
-              ) : (
-                staffList.map((member) => (
-                  <View key={member.id} style={[styles.roleBox, { marginTop: 0, marginBottom: 10, padding: 15, position: 'relative' }]}>
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>{member.fullName}</Text>
-                    <Text style={{ color: '#3498db', fontSize: 14, fontWeight: '600', marginTop: 2 }}>
-                      💼 Role: {member.role}
-                    </Text>
-                    <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 4 }}>✉️ Email: {member.email}</Text>
-                    
-                    {/* 🛡️ SAFEGUARDED RED REVOKE ACCESS BUTTON */}
-                    {member.id !== auth.currentUser?.uid && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 }}>
-                        <TouchableOpacity 
-                          style={{
-                            backgroundColor: '#e74c3c',
-                            paddingVertical: 6,
-                            paddingHorizontal: 12,
-                            borderRadius: 5,
-                          }} 
-                          onPress={() => handleDeleteStaff(member.id, member.fullName)}
-                        >
-                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>Revoke Access</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                ))
-              )}
-            </ScrollView>
-
-            <TouchableOpacity style={styles.button} onPress={() => setScreen('dashboard')}>
-              <Text style={styles.buttonText}>Back to Dashboard</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
-
-  if (screen === 'support_center') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>SaaS Support Center</Text>
-            <Text style={styles.subtitle}>Open a ticket with the Platform Super-Admins</Text>
-
-            <View style={{ width: '100%', marginTop: 20, paddingHorizontal: 5 }}>
-              <Text style={{ color: '#3498db', fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>
-                Describe Your Issue:
-              </Text>
-              
-              <TextInput
-                style={[styles.input, { 
-                  height: 120, 
-                  textAlignVertical: 'top', 
-                  paddingTop: 12,
-                  backgroundColor: '#161624',
-                  borderColor: '#2E2E4A',
-                  color: '#fff'
-                }]}
-                placeholder="Ex: I accidentally deleted John Doe (john@company.com). Please clear their authentication profile token so I can re-register them."
-                placeholderTextColor="#555"
-                multiline={true}
-                numberOfLines={6}
-                value={ticketText}
-                onChangeText={setTicketText}
-              />
-
-              <TouchableOpacity 
-                style={[styles.button, { backgroundColor: '#3498db', marginTop: 15 }]} 
-                onPress={handleSubmitTicket}
-              >
-                <Text style={styles.buttonText}>Submit Support Ticket</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.button, { marginTop: 40, backgroundColor: 'transparent', borderWidth: 1, borderColor: '#3498db' }]} 
-              onPress={() => { setTicketText(''); setScreen('dashboard'); }}
-            >
-              <Text style={[styles.buttonText, { color: '#3498db' }]}>Cancel & Return</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
-
-  if ((screen === 'lab_technician_dashboard' || screen === 'log_sample' || screen === 'sample_directory') && !isLabActive) {
-    return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
-  }
-
-  if (screen === 'log_sample') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-              <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-                <Text style={styles.title}>EM-Lab</Text>
-                <Text style={styles.subtitle}>Log New Mineral Sample</Text>
-
-                <TextInput style={styles.input} placeholder="Sample ID / Batch Code" value={sampleId} onChangeText={setSampleId} placeholderTextColor="#888" />
-                <TextInput style={styles.input} placeholder="Initial Weight (kg)" value={initialWeight} onChangeText={setInitialWeight} keyboardType="numeric" placeholderTextColor="#888" />
-                
-                {/* 🪨 STEP 1: SELECT CORE ORE GROUP */}
-                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Select Ore Group:</Text>
-                <select 
-                  value={selectedGroup} 
-                  onChange={(e) => {
-                    const group = e.target.value;
-                    setSelectedGroup(group);
-                    // Automatically set the second dropdown to the first item of the new group
-                    setSelectedOre(ORE_DATABASE[group][0]);
-                  }}
-                  style={{
-                    width: '90%',
-                    padding: 12,
-                    borderRadius: 8,
-                    backgroundColor: '#232931',
-                    color: '#fff',
-                    border: '1px solid #333',
-                    marginBottom: 15,
-                    fontSize: 14,
-                    outline: 'none'
-                  }}
-                >
-                  <option value="SULFIDES">Sulfides</option>
-                  <option value="OXIDES">Oxides</option>
-                  <option value="NATIVE">Native Elements</option>
-                  <option value="CARBONATES">Carbonates</option>
-                </select>
-
-                {/* 🔬 STEP 2: DYNAMIC SPECIFIC ORE SELECTOR */}
-                <Text style={{ color: '#c8d4e6', marginBottom: 5, fontSize: 13, fontWeight: '600', alignSelf: 'flex-start', marginLeft: '5%' }}>Select Specific Ore / Classification:</Text>
-                <select 
-                  value={selectedOre} 
-                  onChange={(e) => setSelectedOre(e.target.value)}
-                  style={{
-                    width: '90%',
-                    padding: 12,
-                    borderRadius: 8,
-                    backgroundColor: '#232931',
-                    color: '#fff',
-                    border: '1px solid #333',
-                    marginBottom: 20,
-                    fontSize: 14,
-                    outline: 'none'
-                  }}
-                >
-                  {/* Loop through the specific group dynamically */}
-                  {ORE_DATABASE[selectedGroup].map((ore, index) => (
-                    <option key={index} value={ore}>{ore}</option>
-                  ))}
-                </select>
-
-                {/* 🛠️ INDEPENDENT EXPERIMENTAL TESTS SECTION */}
-                <Text style={{ color: '#c8d4e6', marginBottom: 12, fontSize: 14, fontWeight: 'bold', alignSelf: 'flex-start', marginLeft: '5%' }}>
-                  Assign Laboratory Analysis Metrics:
-                </Text>
-
-                {/* 💧 MOISTURE CONTENT TEST CARD */}
-                <View style={{ width: '90%', backgroundColor: '#232931', padding: 15, borderRadius: 12, marginBottom: 15, alignSelf: 'center' }}>
-                  <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>
-                    1. Moisture Content Test
-                  </Text>
-                  <Text style={{ color: '#c8d4e6', fontSize: 12, marginBottom: 10 }}>
-                    Enter the measured moisture mass percentage (Leave blank if skipped).
-                  </Text>
-                  <TextInput
-                    style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 12, fontSize: 16, color: '#000' }}
-                    placeholder="e.g. 5.4"
-                    placeholderTextColor="#888"
-                    keyboardType="numeric"
-                    value={moistureValue}
-                    onChangeText={setMoistureValue}
-                  />
-                </View>
-
-                {/* 🧪 FLOTATION PREP MASS CARD */}
-                <View style={{ width: '90%', backgroundColor: '#232931', padding: 15, borderRadius: 12, marginBottom: 20, alignSelf: 'center' }}>
-                  <Text style={{ color: '#00adb5', fontSize: 14, fontWeight: 'bold', marginBottom: 8 }}>
-                    2. Flotation Prep Target Allocation
-                  </Text>
-                  <Text style={{ color: '#c8d4e6', fontSize: 12, marginBottom: 10 }}>
-                    Enter the allocated mass target in kg (Leave blank if skipped).
-                  </Text>
-                  <TextInput
-                    style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 12, fontSize: 16, color: '#000' }}
-                    placeholder="e.g. 2.5"
-                    placeholderTextColor="#888"
-                    keyboardType="numeric"
-                    value={flotationValue}
-                    onChangeText={setFlotationValue}
-                  />
-                </View>
-
-                <TouchableOpacity style={styles.loginButton} onPress={logMineralSample}>
-                  <Text style={styles.loginButtonText}>Commit Sample</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setScreen('lab_technician_dashboard')}>
-                  <Text style={styles.switchText}>Back to Dashboard</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-}
-
- if (screen === 'sample_directory') {
-  return (
-    <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-        <SafeAreaView style={styles.container}>
-          <Text style={styles.title}>Sample Batches</Text>
-          <Text style={styles.subtitle}>Active Laboratory Inventory</Text>
-
-          <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-            {!loggedSamples || loggedSamples.length === 0 ? (
-              <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
-                No samples found in local memory pool yet.
-              </Text>
-            ) : (
-              loggedSamples.map((item) => (
-                <View key={item.id || item.sampleId} style={[{ backgroundColor: '#2e4053', padding: 15, marginBottom: 10, borderRadius: 8 }]}>
-                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
-                    Batch ID: {item.displayId || item.sampleId || "UNKNOWN_ID"}
-                  </Text>
-                  <Text style={{ color: '#3498db', fontSize: 14, marginTop: 4 }}>
-                    Ore Matrix: {item.oreType || "Not Specified"}
-                  </Text>
-                  <Text style={{ color: '#c8d4e6', fontSize: 13, marginBottom: 4 }}>
-                    Mass: {item.initialWeight || 0} kg
-                  </Text>
-
-                  {/* 🧪 DYNAMIC LAB METRICS */}
-                  {item.moistureTestResult !== undefined && item.moistureTestResult !== null && (
-                    <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
-                      <Text style={{ fontWeight: 'bold', color: '#f1c40f' }}>💧 Moisture Content:</Text> {item.moistureTestResult}%
-                    </Text>
-                  )}
-
-                  {item.flotationPrepResult !== undefined && item.flotationPrepResult !== null && (
-                    <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
-                      <Text style={{ fontWeight: 'bold', color: '#f1c40f' }}>🧪 Flotation Target:</Text> {item.flotationPrepResult} kg
-                    </Text>
-                  )}
-
-                  <Text style={{ 
-                    color: item.status === 'Completed' ? '#2ecc71' : '#e67e22', 
-                    fontSize: 12, 
-                    fontWeight: 'bold', 
-                    marginTop: 8 
-                  }}>
-                    Status Pipeline: {item.status || "Pending Analysis"}
-                  </Text>
-                </View>
-              ))
-            )}
-          </ScrollView>
-
-          <TouchableOpacity style={styles.button} onPress={() => setScreen('lab_technician_dashboard')}>
-            <Text style={styles.buttonText}>Back to Dashboard</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
-      </View>
-    </SafeAreaProvider>
-  );
-}
-
-  if (screen === 'system_settings') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>System Settings</Text>
-            <Text style={styles.subtitle}>Configure Laboratory Parameters</Text>
-
-            <View style={[styles.roleBox, { width: '100%', padding: 20 }]}>
-              <Text style={{ color: '#f1c40f', fontWeight: 'bold', marginBottom: 15 }}>🔥 FURNACE THRESHOLDS</Text>
-              <Text style={{ color: '#fff', marginBottom: 8, fontSize: 14 }}>Max Temperature Limit (°C):</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: '#232931', color: '#fff', marginBottom: 20 }]}
-                keyboardType="numeric"
-                value={maxFurnaceTemp}
-                onChangeText={setMaxFurnaceTemp}
-                placeholder="e.g., 1200"
-              />
-
-              <Text style={{ color: '#f1c40f', fontWeight: 'bold', marginBottom: 15, marginTop: 10 }}>🏢 LAB STATUS</Text>
-              <TouchableOpacity 
-                style={[styles.roleButton, { backgroundColor: isLabActive ? '#27ae60' : '#c0392b', width: '100%' }]}
-                onPress={() => {
-                  const nextState = !isLabActive;
-                  setIsLabActive(nextState);
-                  console.log("Local UI State changed to:", nextState);
-                }}
-              >
-                <Text style={styles.buttonText}>
-                  System Status: {isLabActive ? "ACTIVE (RECEIVING SAMPLES)" : "INACTIVE (PAUSED)"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 💾 PERSISTENT SAVE CONFIGURATIONS BUTTON */}
-            <TouchableOpacity 
-              style={[styles.roleButton, { marginTop: 20, backgroundColor: '#2980b9' }]} 
-              onPress={async () => {
-                try {
-                  console.log("Saving explicit configurations to Firestore: ", isLabActive);
-                  
-                  const configDocRef = doc(db, "system_status", "lab_configuration");
-                  
-                  // Force direct boolean writing to avoid state race conditions
-                  await setDoc(configDocRef, {
-                    isLabActive: Boolean(isLabActive),
-                    maxTemperatureLimit: parseFloat(maxFurnaceTemp) || 1200,
-                    lastUpdatedBy: fullName || "Admin",
-                    updatedAt: new Date().toISOString()
-                  }, { merge: true });
-
-                  console.log("🟢 Document successfully initialized/overwritten in database!");
-
-                  const msg = "Configurations saved securely to database!";
-                  Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
-                  setScreen('dashboard');
-                } catch (error) {
-                  console.error("Error saving system settings profile:", error);
-                  const errMsg = `Failed to write parameters: ${error.message}`;
-                  Platform.OS === 'web' ? alert(errMsg) : Alert.alert("Error", errMsg);
-                }
-              }}
-            >
-              <Text style={styles.buttonText}>💾 Save Configurations</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#7f8c8d', marginTop: 10 }]} onPress={() => setScreen('dashboard')}>
-              <Text style={styles.buttonText}>Cancel</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-}
+  {screen === 'system_settings' && (
+  <SystemSettingsScreen 
+    maxFurnaceTemp={maxFurnaceTemp}
+    setMaxFurnaceTemp={setMaxFurnaceTemp}
+    isLabActive={isLabActive}
+    setIsLabActive={setIsLabActive}
+    onSave={handleSaveSettings} // Move the logic block to a function in App.js
+    onCancel={() => setScreen('dashboard')}
+  />
+)}
 
   if (screen === 'log_melt_cycle') {
     return (
@@ -1588,71 +1072,93 @@ const fetchApprovedMeltQueue = async () => {
     return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
   }
 
- // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
+  // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
 if (screen === 'view_approved_melts') {
-  return (
-    <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-        <SafeAreaView style={styles.container}>
-          <Text style={styles.title}>Certified Melt Queue</Text>
-          <Text style={styles.subtitle}>Select an Approved Ore Batch to Smelt</Text>
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+          <SafeAreaView style={styles.container}>
+            <Text style={styles.title}>Certified Melt Queue</Text>
+            <Text style={styles.subtitle}>Select an Approved Ore Batch to Smelt</Text>
 
-          <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-            {/* 🟢 CHANGED: Mapping from furnaceLogs to approvedMeltQueue */}
-            {approvedMeltQueue.length === 0 ? (
-              <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
-                📭 No certified assay batches are currently waiting to be melted.
-              </Text>
-            ) : (
-              approvedMeltQueue.map((sample) => (
-                <View key={sample.id} style={[styles.roleBox, { borderColor: '#2ecc71', borderWidth: 1, marginBottom: 10, padding: 15 }]}>
-                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
-                    Sample ID: {sample.meltId || sample.sampleId || sample.displayId || "Unknown Sample"}
-                  </Text>
-                  {/* ... rest of your card UI ... */}
-                  
-                  <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
-                    onPress={async () => {
-                      try {
-                        const targetDocId = sample.meltId || sample.sampleId || sample.displayId || sample.id;
-                        
-                        const docRef = doc(db, "mineral_samples", targetDocId);
-                        await updateDoc(docRef, {
-                          status: "In Melt Cycle",
-                          lastFurnaceUpdate: new Date().toISOString()
-                        });
+            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+              {/* 🟢 FIXED: Checking furnaceLogs here instead of approvedSamples */}
+              {furnaceLogs.length === 0 ? (
+                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
+                  📭 No certified assay batches are currently waiting to be melted.
+                </Text>
+              ) : (
+                /* 🟢 FIXED: Mapping furnaceLogs here instead of approvedSamples */
+                furnaceLogs.map((sample) => (
+                  <View key={sample.id} style={[styles.roleBox, { borderColor: '#2ecc71', borderWidth: 1, marginBottom: 10, padding: 15 }]}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
+                      Sample ID: {sample.displayId || sample.sampleId}
+                    </Text>
+                    <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
+                      Ore Type: {sample.oreType} | Certified Purity: {sample.purityGrade || sample.purity}
+                    </Text>
+                    
+                    {/* 🏭 OPERATIONAL READINGS FOR FURNACE SAFETY MANAGEMENT */}
+                    <View style={{ backgroundColor: '#1a1d24', padding: 10, borderRadius: 6, marginTop: 8, marginBottom: 5 }}>
+                      <Text style={{ color: '#fff', fontSize: 13 }}>
+                        ⚖️ Initial Mass intake: <Text style={{ color: '#3498db', fontWeight: 'bold' }}>{sample.initialWeight || 0} kg</Text>
+                      </Text>
+                      
+                      {sample.moistureTestResult !== undefined && sample.moistureTestResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
+                          💧 Moisture content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.moistureTestResult}%</Text>
+                        </Text>
+                      )}
+                      
+                      {sample.flotationPrepResult !== undefined && sample.flotationPrepResult !== null && (
+                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
+                          🧪 Flotation allocation: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} kg</Text>
+                        </Text>
+                      )}
+                    </View>
+                    
+                    <TouchableOpacity 
+                      style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
+                      onPress={async () => {
+                        try {
+                          // 1. Instantly update Firestore so it disappears from this queue query
+                          const docRef = doc(db, "mineral_samples", sample.id);
+                          await updateDoc(docRef, {
+                            status: "In Melt Cycle",
+                            lastFurnaceUpdate: new Date().toISOString()
+                          });
 
-                        setMeltId(targetDocId); 
-                        setSelectedMeltSample(sample);
-                        setFurnaceTemp(sample.currentTemperature?.toString() || '');
-                        setCycleDuration(sample.cycleDurationTime || '');
-                        
-                        setScreen('log_melt_cycle');
+                          setSelectedMeltSample(sample);
+                          setMeltId(sample.displayId || sample.id);
+                          setFurnaceTemp(sample.currentTemperature?.toString() || '');
+                          setCycleDuration(sample.cycleDurationTime || '');
+                          setCurrentTempInput('');
+                          setCycleDurationInput('');
+                          setScreen('log_melt_cycle');
 
-                        // 🟢 CHANGED: Filter from the queue, not the logs
-                        setApprovedMeltQueue(prev => prev.filter(s => s.id !== sample.id));
+                          // 4. Instantly filter out the selected item locally so it visually drops from the list
+                          setFurnaceLogs(prevLogs => prevLogs.filter(log => log.id !== sample.id));
 
-                      } catch (error) {
-                        console.error("Error initializing melt:", error);
-                        alert("⚠️ Failed to lock batch into furnace pipeline.");
-                      }
-                    }}
-                  >
-                    <Text style={styles.buttonText}>🔥 Initialize Melt Cycle</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-          </ScrollView>
+                        } catch (error) {
+                          console.error("Error initializing melt cycle status switch:", error);
+                          alert("⚠️ Failed to lock batch into furnace pipeline. Try again.");
+                        }
+                      }}
+                    >
+                      <Text style={styles.buttonText}>🔥 Initialize Melt Cycle</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+            </ScrollView>
 
-          <TouchableOpacity style={styles.button} onPress={() => setScreen('furnace_operator_dashboard')}>
-            <Text style={styles.buttonText}>Back to Dashboard</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
-      </View>
-    </SafeAreaProvider>
-  );
+            <TouchableOpacity style={styles.button} onPress={() => setScreen('furnace_operator_dashboard')}>
+              <Text style={styles.buttonText}>Back to Dashboard</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+        </View>
+      </SafeAreaProvider>
+    );
 }
 
 if (screen === 'log_melt_cycle' && selectedMeltSample) {
@@ -1661,9 +1167,18 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
         <SafeAreaView style={styles.container}>
           <Text style={styles.title}>Furnace Control Room</Text>
-          <Text style={styles.subtitle}>Melt ID: {selectedMeltSample.sampleId}</Text>
+          <Text style={styles.subtitle}>Batch: {selectedMeltSample.displayId || selectedMeltSample.sampleId}</Text>
 
-          {/* 🌡️ Dynamic Temperature Inputs */}
+          <View style={{ backgroundColor: '#232931', padding: 10, borderRadius: 8, marginBottom: 15, width: '100%' }}>
+            <Text style={{ color: '#f1c40f', fontWeight: 'bold', fontSize: 12, marginBottom: 4 }}>LAB TESTING SPECS:</Text>
+            <Text style={{ color: '#fff', fontSize: 14 }}>
+              Moisture Content: {selectedMeltSample.moistureTestResult != null ? `${selectedMeltSample.moistureTestResult}%` : 'N/A'}
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 14, marginTop: 2 }}>
+              Flotation Allocation: {selectedMeltSample.flotationPrepResult != null ? `${selectedMeltSample.flotationPrepResult} kg` : 'N/A'}
+            </Text>
+          </View>
+
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Update Telemetry Log</Text>
             
@@ -1707,7 +1222,12 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
             )}
           </ScrollView>
 
-          <TouchableOpacity style={styles.button} onPress={() => setScreen('view_approved_melts')}>
+          <TouchableOpacity style={styles.button} onPress={() => {
+            setSelectedMeltSample(null);
+            setCurrentTempInput('');
+            setCycleDurationInput('');
+            setScreen('view_approved_melts');
+          }}>
             <Text style={styles.buttonText}>Return to Queue</Text>
           </TouchableOpacity>
         </SafeAreaView>
@@ -1716,90 +1236,13 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
   );
 }
 
-  if (screen === 'furnace_directory') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>Furnace Logs</Text>
-            <Text style={styles.subtitle}>Historical Thermal Melt Run Registry</Text>
-
-            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-              {furnaceLogs.length === 0 ? (
-                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No furnace cycles registered yet.</Text>
-              ) : (
-                furnaceLogs.map((item) => {
-                  // 🛡️ DYNAMIC EVALUATION: Compare strictly against the loaded company parameter
-                  // If maxFurnaceTemp doesn't exist yet, we fall back safely to checking if item itself has a threshold, or mark as unverified
-                  const safetyThreshold = maxFurnaceTemp ? parseFloat(maxFurnaceTemp) : null;
-                  const isOverheated = safetyThreshold !== null ? item.temperature > safetyThreshold : false;
-                  
-                  return (
-                    <View 
-                      key={item.id} 
-                      style={[
-                        styles.roleBox, 
-                        { 
-                          marginTop: 0, 
-                          marginBottom: 10, 
-                          padding: 15,
-                          borderLeftWidth: 4,
-                          borderLeftColor: safetyThreshold === null ? '#f1c40f' : (isOverheated ? '#c0392b' : '#27ae60') 
-                        }
-                      ]}
-                    >
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>
-                          Batch: {item.sampleId || item.meltId || "Unknown Batch"}
-                        </Text>
-                        <Text style={{ color: safetyThreshold === null ? '#f1c40f' : (isOverheated ? '#c0392b' : '#27ae60'), fontSize: 13, fontWeight: 'bold' }}>
-                          {safetyThreshold === null ? "⚠️ PROFILE UNSET" : (isOverheated ? "💥 OVERHEAT" : "✅ OPERATIONAL")}
-                        </Text>
-                      </View>
-                      
-                      {/* 🔥 THERMAL CYCLE METRICS */}
-                      <Text style={{ color: '#fff', fontSize: 14, marginTop: 6, fontWeight: '500' }}>
-                        🌡️ Temp: {item.temperature}°C {safetyThreshold && <Text style={{ fontSize: 11, color: '#888' }}>(Max Limit: {safetyThreshold}°C)</Text>}
-                      </Text>
-                      <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 2 }}>
-                        ⏱️ Cycle Duration: {item.durationMinutes || item.cycleDurationTime} mins
-                      </Text>
-
-                      {/* 🪨 COMPREHENSIVE MATERIAL TRACKING DETAILS */}
-                      <View style={{ backgroundColor: '#1a1d24', padding: 8, borderRadius: 6, marginTop: 8, marginBottom: 4 }}>
-                        <Text style={{ color: '#c8d4e6', fontSize: 12 }}>
-                          📦 Ore Matrix: {item.oreType || 'N/A'} | ⚖️ Intake Mass: {item.initialWeight || 0} kg
-                        </Text>
-                        
-                        {item.moistureTestResult !== undefined && item.moistureTestResult !== null && (
-                          <Text style={{ color: '#fff', fontSize: 12, marginTop: 3 }}>
-                            💧 Moisture Content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{item.moistureTestResult}%</Text>
-                          </Text>
-                        )}
-                        {item.flotationPrepResult !== undefined && item.flotationPrepResult !== null && (
-                          <Text style={{ color: '#fff', fontSize: 12, marginTop: 2 }}>
-                            🧪 Flotation Allocation: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{item.flotationPrepResult} kg</Text>
-                          </Text>
-                        )}
-                      </View>
-
-                      <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 4, borderTopWidth: 0.5, borderTopColor: '#333', paddingTop: 4 }}>
-                        Executed By: {item.loggedBy || "Furnace Operator"}
-                      </Text>
-                    </View>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            <TouchableOpacity style={styles.button} onPress={() => setScreen('furnace_operator_dashboard')}>
-              <Text style={styles.buttonText}>Back to Dashboard</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-}
+{screen === 'furnace_directory' && (
+  <FurnaceDirectoryScreen 
+    furnaceLogs={furnaceLogs}
+    maxFurnaceTemp={maxFurnaceTemp}
+    onBack={() => setScreen('furnace_operator_dashboard')}
+  />
+)}
 
   if ((screen === 'metallurgist_dashboard') && !isLabActive) {
     return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
@@ -1817,7 +1260,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
             {/* IF A SAMPLE IS SELECTED FOR EVALUATION, SHOW PROCESSING PORTAL */}
             {selectedSample ? (
               <View style={styles.roleBox}>
-                <Text style={[styles.roleTitle, { color: '#e67e22' }]}>Evaluating Batch: {selectedSample.sampleId}</Text>
+                <Text style={[styles.roleTitle, { color: '#e67e22' }]}>Evaluating Batch: {selectedSample.displayId || selectedSample.sampleId}</Text>
                 <Text style={{ color: '#fff', marginBottom: 3 }}>Ore Matrix: {selectedSample.oreType}</Text>
                 <Text style={{ color: '#fff', marginBottom: 5 }}>Input Mass: {selectedSample.initialWeight} kg</Text>
                 
@@ -1894,7 +1337,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
                 ) : (
                   pendingSamples.map((sample) => (
                     <View key={sample.id} style={[styles.roleBox, { padding: 15, marginBottom: 10 }]}>
-                      <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Sample: {sample.sampleId}</Text>
+                      <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Sample: {sample.displayId || sample.sampleId}</Text>
                       <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>Type: {sample.oreType} | Mass: {sample.initialWeight}kg</Text>
                       
                       {/* 🧪 QUEUE LIST STATE: METRICS SUMMARY DISPLAY */}
@@ -2109,7 +1552,7 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
   const userRole = role ? role.toLowerCase().trim() : '';
 
   // 🛡️ 1. COMPANY ADMINISTRATOR MAIN WORKSPACE
-  if (screen === 'dashboard' && userRole === 'admin') {
+  if (screen === 'dashboard' && isAdminRole(role)) {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
@@ -2168,7 +1611,10 @@ if (screen === 'log_melt_cycle' && selectedMeltSample) {
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Admin Controls</Text>
               
-              <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('signup')}>
+              <TouchableOpacity style={styles.roleButton} onPress={() => {
+                setRegCompany(companyName || '');
+                setScreen('signup');
+              }}>
                 <Text style={styles.buttonText}>Register New Staff</Text>
               </TouchableOpacity>
               
@@ -2235,46 +1681,19 @@ if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole
   );
 }
 
-  // 🌋 3. FURNACE OPERATOR MAIN WORKSPACE
-if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRole === 'furnace operator')) {
-  return (
-    <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-        <SafeAreaView style={styles.container}>
-          <Text style={styles.title}>EM-Lab</Text>
-          <Text style={styles.subtitle}>{companyName} - FURNACE OPERATIONS</Text>
+  {screen === 'furnace_operator_dashboard' && (
+  <FurnaceOperatorDashboard 
+    onNavigate={(nextScreen) => {
+      // Handle special data fetching requirements before changing screens
+      if (nextScreen === 'view_approved_melts') {
+        fetchApprovedMeltQueue(companyName);
+      }
+      setScreen(nextScreen);
+    }}
+    onLogout={handleLogout}
+  />
+)}
 
-          <View style={styles.roleBox}>
-            <Text style={styles.roleTitle}>Furnace Operations</Text>
-            
-            {/* 📋 Button 1: Now correctly points to your new approved samples queue function */}
-            <TouchableOpacity 
-              style={styles.roleButton} 
-              onPress={async () => {
-                await fetchApprovedMeltQueue(); 
-                setScreen('view_approved_melts');
-              }}
-            >
-              <Text style={styles.buttonText}>📋 View Certified Batches for Melting</Text>
-            </TouchableOpacity>
-
-            {/* 📊 Button 2: For viewing historical record registries */}
-            <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchFurnaceOperations}>
-              <Text style={styles.buttonText}>📊 Monitor Furnace Status</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
-            <Text style={styles.buttonText}>View Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
-            <Text style={styles.buttonText}>Logout</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
-      </View>
-    </SafeAreaProvider>
-  );
-}
   // 🔬 4. METALLURGIST QUALITY WORKSPACE
   if (screen === 'metallurgist_dashboard' || (screen === 'dashboard' && userRole === 'metallurgist')) {
     return (
@@ -2339,7 +1758,7 @@ if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRo
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.button} onPress={() => {
-              if (userRole === 'admin') setScreen('dashboard');
+              if (isAdminRole(role)) setScreen('dashboard');
               else if (userRole === 'lab technician') setScreen('lab_technician_dashboard');
               else if (userRole === 'furnace operator') setScreen('furnace_operator_dashboard');
               else if (userRole === 'metallurgist') setScreen('metallurgist_dashboard');
@@ -2351,14 +1770,6 @@ if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRo
       </SafeAreaProvider>
     );
   }
-
-
-
-
-
-
-  
-
 
   // 🔑 6. BASELINE CATCH-ALL DEFAULT INTERFACE (FALLBACK TO LOGIN IF NO ROLE ACTIVE)
   return (
@@ -2421,23 +1832,3 @@ if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRo
     </CodeCrashBoundary>
   );
 }
-
-
-
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', padding: 20 },
-  scrollContainer: { flexGrow: 1, paddingVertical: 40, justifyContent: 'center' },
-  title: { fontSize: 42, fontWeight: 'bold', textAlign: 'center', color: '#ffffff', marginBottom: 10 },
-  subtitle: { fontSize: 16, textAlign: 'center', color: '#c8d4e6', marginBottom: 40 },
-  input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000' },
-  loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10 },
-  loginButtonText: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
-  button: { backgroundColor: '#2c5f8a', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
-  buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  switchText: { color: '#c8d4e6', textAlign: 'center', marginTop: 20 },
-  signUpText: { color: '#3498db', fontWeight: 'bold' },
-  roleBox: { backgroundColor: '#2c3e50', padding: 20, borderRadius: 15, marginVertical: 20, borderWidth: 1, borderColor: '#3498db' },
-  roleTitle: { color: '#3498db', fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
-  roleButton: { backgroundColor: '#34495e', padding: 12, borderRadius: 8, marginVertical: 5, alignItems: 'center' }
-});
