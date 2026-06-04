@@ -2422,6 +2422,9 @@ if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRo
   );
 }
 
+
+
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1A1A2E', justifyContent: 'center', padding: 20 },
   scrollContainer: { flexGrow: 1, paddingVertical: 40, justifyContent: 'center' },
