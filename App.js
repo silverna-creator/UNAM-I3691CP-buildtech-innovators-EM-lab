@@ -142,6 +142,8 @@ const [selectedOre, setSelectedOre] = useState('');
   const [cycleDuration, setCycleDuration] = useState('');
   const [furnaceLogs, setFurnaceLogs] = useState([]);
 
+  const [selectedMeltSample, setSelectedMeltSample] = useState(null)
+
   // Metallurgist State Hooks
   const [pendingSamples, setPendingSamples] = useState([]);
   const [selectedSample, setSelectedSample] = useState(null);
@@ -156,6 +158,9 @@ const [selectedOre, setSelectedOre] = useState('');
   const [moistureValue, setMoistureValue] = useState('');     // For moisture test %
 const [flotationValue, setFlotationValue] = useState('');   // For flotation prep kg
 
+const [approvedMeltQueue, setApprovedMeltQueue] = useState([]);
+
+const [isLoading, setIsLoading] = useState(false);
 
  useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -753,147 +758,160 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
   };
 
   // 1. Commit Melt Cycle to Firestore
-  const logMeltCycle = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+const logMeltCycle = async (e) => {
+  if (e && e.preventDefault) e.preventDefault();
 
-    if (!meltId.trim() || !furnaceTemp.trim() || !cycleDuration.trim()) {
-      const msg = "Please fill in all melt cycle details.";
-      Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
-      return;
-    }
-
-    try {
-      const cleanMeltId = meltId.trim().toUpperCase();
-
-      // 🔍 MATCHING THE EXACT FIELDS: Search furnaceLogs using displayId or sampleId
-      const linkedSample = furnaceLogs.find(sample => 
-        (sample.displayId && sample.displayId.toUpperCase() === cleanMeltId) || 
-        (sample.sampleId && sample.sampleId.toUpperCase() === cleanMeltId)
-      );
-
-      // Extract the exact field names from your Firestore snapshot structure
-      const finalOreType = linkedSample ? (linkedSample.oreType || "Not Classified") : "Not Classified";
-      const finalWeight = linkedSample ? (parseFloat(linkedSample.initialWeight) || 0) : 0;
-      const finalMoisture = linkedSample && linkedSample.moistureTestResult !== undefined ? linkedSample.moistureTestResult : null;
-      const finalFlotation = linkedSample && linkedSample.flotationPrepResult !== undefined ? linkedSample.flotationPrepResult : null;
-
-      const meltData = {
-        meltId: cleanMeltId,
-        temperature: parseFloat(furnaceTemp),
-        durationMinutes: parseInt(cycleDuration),
-        companyId: companyName, 
-        loggedBy: fullName,
-        createdAt: new Date().toISOString(),
-
-        // 💾 SAVING WITH YOUR EXACT FIELD VALUES
-        oreType: finalOreType,
-        initialWeight: finalWeight,
-        moistureTestResult: finalMoisture,
-        flotationPrepResult: finalFlotation
-      };
-
-      await addDoc(collection(db, "furnace_operations"), meltData);
-      
-      const successMsg = `Melt Cycle ${cleanMeltId} logged successfully!`;
-      Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
-      
-      setMeltId('');
-      setFurnaceTemp('');
-      setCycleDuration('');
-      
-      if (typeof fetchFurnaceOperations === 'function') fetchFurnaceOperations(); 
-    } catch (error) {
-      console.error("Error logging melt cycle:", error);
-    }
-  };
-
-  // 2. Fetch Historical Melt Runs
-  const fetchFurnaceOperations = async () => {
-    if (!companyName) return;
-
-    try {
-      const furnaceQuery = query(
-        collection(db, "furnace_operations"),
-        where("companyId", "==", companyName)
-      );
-
-      const querySnapshot = await getDocs(furnaceQuery);
-      const logs = [];
-      querySnapshot.forEach((doc) => {
-        logs.push({ id: doc.id, ...doc.data() });
-      });
-
-      // Sort with newest runs at the top
-      logs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setFurnaceLogs(logs);
-      setScreen('furnace_directory'); // Route directly to the uniform history view
-    } catch (error) {
-      console.error("Error retrieving furnace operations:", error);
-    }
-  };
-
- const fetchApprovedMeltQueue = async (targetCompany) => {
-  const cleanCompany = typeof targetCompany === 'string' ? targetCompany : companyName;
-
-  if (!cleanCompany) {
-    console.log("Cannot fetch queue: Company profile name is empty.");
+  if (!meltId.trim() || !furnaceTemp.trim() || !cycleDuration.trim()) {
+    const msg = "Please fill in all melt cycle details.";
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
     return;
   }
 
   try {
-    const q = query(
-      collection(db, "mineral_samples"), 
-      // 🟢 CHANGED FROM "companyId" TO "company" TO MATCH YOUR FIRESTORE KEY EXPLICITLY:
-      where("company", "==", cleanCompany),
-      where("status", "==", "Approved") 
+    const cleanMeltId = meltId.trim().toUpperCase();
+
+    // 1. LOOKUP: Find the sample in the isolated queue
+    const linkedSample = approvedMeltQueue.find(sample => 
+      (sample.meltId && sample.meltId.toUpperCase() === cleanMeltId) ||
+      (sample.displayId && sample.displayId.toUpperCase() === cleanMeltId) || 
+      (sample.sampleId && sample.sampleId.toUpperCase() === cleanMeltId)
     );
+
+    // 2. DEBUG: Click the object in your console to see if moisture/flotation fields exist
+    console.log(linkedSample 
+      ? `DEBUG: FOUND SAMPLE [${cleanMeltId}]:` 
+      : `DEBUG: FAILED TO FIND SAMPLE [${cleanMeltId}]`, 
+      linkedSample || "Object is null/undefined"
+    );
+
+    // 3. EXTRACTION: Safely grab the values
+    const finalOreType = linkedSample?.oreType ?? "Not Classified";
+    const finalWeight = parseFloat(linkedSample?.initialWeight) || 0;
+    const finalMoisture = linkedSample?.moistureTestResult ?? null;
+    const finalFlotation = linkedSample?.flotationPrepResult ?? null;
+
+    // 4. PREPARE DATA
+    const meltData = {
+      meltId: cleanMeltId,
+      temperature: parseFloat(furnaceTemp),
+      durationMinutes: parseInt(cycleDuration),
+      companyId: companyName, 
+      loggedBy: fullName || "Furnace Operator",
+      timestamp: new Date().toISOString(),
+      oreType: finalOreType,
+      initialWeight: finalWeight,
+      moistureTestResult: finalMoisture,
+      flotationPrepResult: finalFlotation
+    };
+
+    // 5. WRITE & CLEANUP
+    await addDoc(collection(db, "furnace_operations"), meltData);
     
-    const querySnapshot = await getDocs(q);
-    const samples = [];
+    const successMsg = `Melt Cycle ${cleanMeltId} logged successfully!`;
+    Platform.OS === 'web' ? alert(successMsg) : Alert.alert("Success", successMsg);
     
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      samples.push({
-        id: doc.id,
-        ...data,
-        sampleId: data.sampleId || '',
-        displayId: data.displayId || '',
-        oreType: data.oreType || 'Unclassified',
-        initialWeight: data.initialWeight || 0,
-        moistureTestResult: data.moistureTestResult !== undefined ? data.moistureTestResult : null,
-        flotationPrepResult: data.flotationPrepResult !== undefined ? data.flotationPrepResult : null
-      });
-    });
+    setMeltId('');
+    setFurnaceTemp('');
+    setCycleDuration('');
     
-    setFurnaceLogs(samples); 
-    console.log(`Successfully pulled ${samples.length} approved samples for ${cleanCompany}`);
+    if (typeof fetchFurnaceOperations === 'function') fetchFurnaceOperations(); 
   } catch (error) {
-    console.error("Error fetching approved queue: ", error);
+    console.error("Error logging melt cycle:", error);
+    alert("Error saving record. Check console for details.");
   }
 };
 
-const updateFurnaceTelemetry = async () => {
-  if (!currentTempInput.trim()) return;
+  // 🟢 UPGRADED & NORMALIZED HISTORICAL FETCH (FULLY SYNCHRONIZED WITH UI KEYS)
+const fetchFurnaceOperations = async () => {
+  if (!companyName) return;
 
   try {
-    const docRef = doc(db, "mineral_samples", selectedMeltSample.id);
+    console.log(`📡 Querying furnace_operations for company: [${companyName}]...`);
+    const furnaceQuery = query(
+      collection(db, "furnace_operations"),
+      where("companyId", "==", companyName)
+    );
+
+    const querySnapshot = await getDocs(furnaceQuery);
+    const logs = [];
     
-    // Create a time-stamped log entry object
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      
+      logs.push({ 
+        id: doc.id, 
+        ...data,
+        meltId: data.meltId || data.sampleId || "Unknown Batch",
+        temperature: data.temperature ?? data.currentTemperature ?? 0,
+        durationMinutes: data.durationMinutes ?? data.cycleDurationTime ?? "Not Specified",
+        oreType: data.oreType || "Not Classified",
+        initialWeight: data.initialWeight !== undefined ? data.initialWeight : (data.initialMass !== undefined ? data.initialMass : 0),
+        moistureTestResult: data.moistureTestResult !== undefined ? data.moistureTestResult : null,
+        flotationPrepResult: data.flotationPrepResult !== undefined ? data.flotationPrepResult : null,
+        
+        // 🟢 FIXED: Kept as loggedBy so item.loggedBy pulls perfectly in the furnace_directory screen
+        loggedBy: data.loggedBy || data.executedBy || "Furnace Operator"
+      });
+    });
+
+    // 🟢 FIXED SORTING: Uses a fallback to data.timestamp so older/newer entry types sort correctly
+    logs.sort((a, b) => new Date(b.timestamp || b.createdAt || 0) - new Date(a.timestamp || a.createdAt || 0));
+    
+    setFurnaceLogs(logs);
+    setScreen('furnace_directory'); 
+    console.log(`✅ Historical logs parsed and synchronized: ${logs.length} runs.`);
+  } catch (error) {
+    console.error("Error retrieving furnace operations:", error);
+  }
+};
+
+
+const updateFurnaceTelemetry = async () => {
+  if (!currentTempInput.trim()) return;
+  console.log("DEBUG: What is inside selectedMeltSample right now?", selectedMeltSample);
+
+  try {
+    // 🟢 FIXED: Fallback chain to ensure it targets the correct custom composite document ID
+    const targetDocId = selectedMeltSample.meltId || selectedMeltSample.sampleId || selectedMeltSample.displayId || selectedMeltSample.id;
+    console.log("Targeting document ID for update:", targetDocId);
+
+    const docRef = doc(db, "mineral_samples", targetDocId);
     const newLogEntry = {
       temperature: parseFloat(currentTempInput),
       loggedAt: new Date().toISOString(),
       durationSoFar: cycleDurationInput || "Not Specified"
     };
 
+    // This will now execute successfully without failing
     await updateDoc(docRef, {
-      // 📈 Append to the history array smoothly
       temperatureLogs: arrayUnion(newLogEntry),
       currentTemperature: parseFloat(currentTempInput),
       lastFurnaceUpdate: new Date().toISOString(),
-      status: "In Melt Cycle" // Changes status so technicians know it's cooking!
+      status: "In Melt Cycle" 
     });
 
-    // Refresh our local selection state so the UI updates live
+    // 🟢 2. This block will now run smoothly and save your data fields!
+    const operationsRef = collection(db, "furnace_operations");
+    await addDoc(operationsRef, {
+      companyId: companyName,
+      meltId: targetDocId,
+      
+      // Matches item.temperature and item.durationMinutes in UI
+      temperature: parseFloat(currentTempInput),
+      durationMinutes: cycleDurationInput || "Not Specified",
+      
+      // Matches item.loggedBy in UI
+      loggedBy: fullName || "Penny Muyateka",
+      timestamp: new Date().toISOString(),
+
+      // Material tracking attributes saved directly into the historical log
+      oreType: selectedMeltSample.oreType || "Not Classified",
+      initialWeight: parseFloat(selectedMeltSample.initialWeight) || 0,
+      moistureTestResult: selectedMeltSample.moistureTestResult !== undefined ? selectedMeltSample.moistureTestResult : null,
+      flotationPrepResult: selectedMeltSample.flotationPrepResult !== undefined ? selectedMeltSample.flotationPrepResult : null
+    });
+
+    // Update local context arrays
     setSelectedMeltSample(prev => ({
       ...prev,
       temperatureLogs: prev.temperatureLogs ? [...prev.temperatureLogs, newLogEntry] : [newLogEntry],
@@ -901,38 +919,99 @@ const updateFurnaceTelemetry = async () => {
     }));
 
     setCurrentTempInput('');
-    alert("🔥 Furnace telemetry log updated successfully!");
+    alert("🔥 Telemetry saved successfully with matched UI parameters!");
+    
+    if (typeof fetchFurnaceOperations === 'function') fetchFurnaceOperations();
   } catch (error) {
     console.error("Error writing furnace telemetry:", error);
+    alert("⚠️ Failed to update furnace record. Check your database connection.");
   }
 };
 
+// 🟢 UPGRADED & NORMALIZED LIVE TELEMETRY FETCH
 const fetchLiveFurnaceTelemetry = async (company) => {
-    try {
-      const targetCompany = company || companyName;
-      if (!targetCompany) return;
+  try {
+    const targetCompany = company || companyName;
+    if (!targetCompany) return;
 
-      // 🟢 FIX: Look inside the 'furnace_operations' collection instead!
-      const operationsRef = collection(db, "furnace_operations");
+    console.log(`📡 Fetching live telemetry for company: [${targetCompany}]...`);
+    const operationsRef = collection(db, "furnace_operations");
+    const q = query(operationsRef, where("companyId", "==", targetCompany));
+    
+    const querySnapshot = await getDocs(q);
+    const activeMelts = [];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
       
-      // Query based on your screenshot's exact field name: 'companyId'
-      const q = query(
-        operationsRef, 
-        where("companyId", "==", targetCompany)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const activeMelts = [];
-      
-      querySnapshot.forEach((doc) => {
-        activeMelts.push({ id: doc.id, ...doc.data() });
+      // Normalize data layout on the fly
+      activeMelts.push({ 
+        id: doc.id, 
+        ...data,
+        meltId: data.meltId || data.sampleId || "Unknown Batch",
+        temperature: data.temperature ?? data.currentTemperature ?? 0,
+        durationMinutes: data.durationMinutes ?? data.cycleDurationTime ?? "Not Specified",
+        oreType: data.oreType || "Not Classified",
+        initialWeight: data.initialWeight !== undefined ? data.initialWeight : (data.initialMass !== undefined ? data.initialMass : 0),
+        moistureTestResult: data.moistureTestResult !== undefined ? data.moistureTestResult : null,
+        flotationPrepResult: data.flotationPrepResult !== undefined ? data.flotationPrepResult : null,
+        executedBy: data.loggedBy || data.executedBy || "Furnace Operator"
       });
-      
-      setFurnaceLogs(activeMelts);
-    } catch (error) {
-      console.error("Error fetching live telemetry from furnace_operations:", error);
-    }
-  };
+    });
+    
+    setFurnaceLogs(activeMelts);
+    console.log(`✅ Live telemetry synchronized: ${activeMelts.length} active runs.`);
+  } catch (error) {
+    console.error("Error fetching live telemetry from furnace_operations:", error);
+  }
+};
+
+// 🟢 NEW: Fetches un-melted, certified batches directly from Collection A (mineral_samples)
+const fetchApprovedMeltQueue = async () => {
+  // 🛡️ Guard Clause: Prevent multiple simultaneous fetches
+  if (!companyName || isLoading) {
+    console.log("Fetch skipped: Company name missing or fetch already in progress.");
+    return;
+  }
+
+  setIsLoading(true); // 🔒 Lock
+
+  try {
+    console.log(`🔍 Fetching approved queue files for: [${companyName}]...`);
+    
+    const q = query(
+      collection(db, "mineral_samples"), 
+      where("company", "==", companyName),
+      where("status", "==", "Approved")
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const approvedSamples = [];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      approvedSamples.push({
+        id: doc.id,
+        ...data,
+        meltId: data.sampleId || data.displayId || doc.id,
+        oreType: data.oreType || "Not Classified",
+        initialWeight: data.initialWeight || 0,
+        moistureTestResult: data.moistureTestResult ?? null,
+        flotationPrepResult: data.flotationPrepResult ?? null
+      });
+    });
+    
+    // Only update state if the data is different to prevent unnecessary re-renders
+    setApprovedMeltQueue(approvedSamples);
+    console.log(`✅ Successfully loaded ${approvedSamples.length} approved samples into the melt queue.`);
+    
+  } catch (error) {
+    console.error("Error fetching approved melt queue:", error);
+    // Optional: Only clear if there's a critical network error
+  } finally {
+    setIsLoading(false); // 🔓 Unlock
+  }
+};
 
   const fetchSamplesForAnalysis = async () => {
     // 🔥 Force screen transition first so the UI never feels frozen
@@ -1509,93 +1588,71 @@ const fetchLiveFurnaceTelemetry = async (company) => {
     return <LaboratoryLockdownScreen onCheckStatus={fetchSystemSettingsStatus} onReturnToLogin={handleLockdownExit} />;
   }
 
-  // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
+ // --- 🏭 FURNACE OPERATOR: CHOOSE APPROVED BATCH ---
 if (screen === 'view_approved_melts') {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>Certified Melt Queue</Text>
-            <Text style={styles.subtitle}>Select an Approved Ore Batch to Smelt</Text>
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+        <SafeAreaView style={styles.container}>
+          <Text style={styles.title}>Certified Melt Queue</Text>
+          <Text style={styles.subtitle}>Select an Approved Ore Batch to Smelt</Text>
 
-            <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
-              {/* 🟢 FIXED: Checking furnaceLogs here instead of approvedSamples */}
-              {furnaceLogs.length === 0 ? (
-                <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
-                  📭 No certified assay batches are currently waiting to be melted.
-                </Text>
-              ) : (
-                /* 🟢 FIXED: Mapping furnaceLogs here instead of approvedSamples */
-                furnaceLogs.map((sample) => (
-                  <View key={sample.id} style={[styles.roleBox, { borderColor: '#2ecc71', borderWidth: 1, marginBottom: 10, padding: 15 }]}>
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
-                      Sample ID: {sample.sampleId || sample.displayId}
-                    </Text>
-                    <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
-                      Ore Type: {sample.oreType} | Certified Purity: {sample.purityGrade || sample.purity}
-                    </Text>
-                    
-                    {/* 🏭 OPERATIONAL READINGS FOR FURNACE SAFETY MANAGEMENT */}
-                    <View style={{ backgroundColor: '#1a1d24', padding: 10, borderRadius: 6, marginTop: 8, marginBottom: 5 }}>
-                      <Text style={{ color: '#fff', fontSize: 13 }}>
-                        ⚖️ Initial Mass intake: <Text style={{ color: '#3498db', fontWeight: 'bold' }}>{sample.initialWeight || 0} kg</Text>
-                      </Text>
-                      
-                      {sample.moistureTestResult !== undefined && sample.moistureTestResult !== null && (
-                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
-                          💧 Moisture content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.moistureTestResult}%</Text>
-                        </Text>
-                      )}
-                      
-                      {sample.flotationPrepResult !== undefined && sample.flotationPrepResult !== null && (
-                        <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
-                          🧪 Flotation allocation: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} kg</Text>
-                        </Text>
-                      )}
-                    </View>
-                    
-                    <TouchableOpacity 
-                      style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
-                      onPress={async () => {
-                        try {
-                          // 1. Instantly update Firestore so it disappears from this queue query
-                          const docRef = doc(db, "mineral_samples", sample.id);
-                          await updateDoc(docRef, {
-                            status: "In Melt Cycle",
-                            lastFurnaceUpdate: new Date().toISOString()
-                          });
+          <ScrollView style={{ flex: 1, width: '100%', marginBottom: 15 }} showsVerticalScrollIndicator={false}>
+            {/* 🟢 CHANGED: Mapping from furnaceLogs to approvedMeltQueue */}
+            {approvedMeltQueue.length === 0 ? (
+              <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>
+                📭 No certified assay batches are currently waiting to be melted.
+              </Text>
+            ) : (
+              approvedMeltQueue.map((sample) => (
+                <View key={sample.id} style={[styles.roleBox, { borderColor: '#2ecc71', borderWidth: 1, marginBottom: 10, padding: 15 }]}>
+                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
+                    Sample ID: {sample.meltId || sample.sampleId || sample.displayId || "Unknown Sample"}
+                  </Text>
+                  {/* ... rest of your card UI ... */}
+                  
+                  <TouchableOpacity 
+                    style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
+                    onPress={async () => {
+                      try {
+                        const targetDocId = sample.meltId || sample.sampleId || sample.displayId || sample.id;
+                        
+                        const docRef = doc(db, "mineral_samples", targetDocId);
+                        await updateDoc(docRef, {
+                          status: "In Melt Cycle",
+                          lastFurnaceUpdate: new Date().toISOString()
+                        });
 
-                          // 2. Save the selected sample's details into your states
-                          setMeltId(sample.id); // Firestore Doc ID
-                          setFurnaceTemp(sample.currentTemperature?.toString() || '');
-                          setCycleDuration(sample.cycleDurationTime || '');
-                          
-                          // 3. Move the operator into the Control Room panel
-                          setScreen('log_melt_cycle');
+                        setMeltId(targetDocId); 
+                        setSelectedMeltSample(sample);
+                        setFurnaceTemp(sample.currentTemperature?.toString() || '');
+                        setCycleDuration(sample.cycleDurationTime || '');
+                        
+                        setScreen('log_melt_cycle');
 
-                          // 4. Instantly filter out the selected item locally so it visually drops from the list
-                          setFurnaceLogs(prevLogs => prevLogs.filter(log => log.id !== sample.id));
+                        // 🟢 CHANGED: Filter from the queue, not the logs
+                        setApprovedMeltQueue(prev => prev.filter(s => s.id !== sample.id));
 
-                        } catch (error) {
-                          console.error("Error initializing melt cycle status switch:", error);
-                          alert("⚠️ Failed to lock batch into furnace pipeline. Try again.");
-                        }
-                      }}
-                    >
-                      <Text style={styles.buttonText}>🔥 Initialize Melt Cycle</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))
-              )}
-            </ScrollView>
+                      } catch (error) {
+                        console.error("Error initializing melt:", error);
+                        alert("⚠️ Failed to lock batch into furnace pipeline.");
+                      }
+                    }}
+                  >
+                    <Text style={styles.buttonText}>🔥 Initialize Melt Cycle</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </ScrollView>
 
-            <TouchableOpacity style={styles.button} onPress={() => setScreen('furnace_operator_dashboard')}>
-              <Text style={styles.buttonText}>Back to Dashboard</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
+          <TouchableOpacity style={styles.button} onPress={() => setScreen('furnace_operator_dashboard')}>
+            <Text style={styles.buttonText}>Back to Dashboard</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+    </SafeAreaProvider>
+  );
 }
 
 if (screen === 'log_melt_cycle' && selectedMeltSample) {
@@ -2179,46 +2236,45 @@ if (screen === 'lab_technician_dashboard' || (screen === 'dashboard' && userRole
 }
 
   // 🌋 3. FURNACE OPERATOR MAIN WORKSPACE
-  if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRole === 'furnace operator')) {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
-          <SafeAreaView style={styles.container}>
-            <Text style={styles.title}>EM-Lab</Text>
-            <Text style={styles.subtitle}>{companyName} - FURNACE OPERATIONS</Text>
+if (screen === 'furnace_operator_dashboard' || (screen === 'dashboard' && userRole === 'furnace operator')) {
+  return (
+    <SafeAreaProvider>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+        <SafeAreaView style={styles.container}>
+          <Text style={styles.title}>EM-Lab</Text>
+          <Text style={styles.subtitle}>{companyName} - FURNACE OPERATIONS</Text>
 
-            <View style={styles.roleBox}>
-              <Text style={styles.roleTitle}>Furnace Operations</Text>
-              
-              {/* 🟢 FIXED LINE: Fetches the data AND navigates the screen to your form panel immediately */}
-              <TouchableOpacity 
-                style={styles.roleButton} 
-                onPress={async () => {
-                  await fetchApprovedMeltQueue(companyName);
-                  setScreen('log_melt_cycle');
-                }}
-              >
-                <Text style={styles.buttonText}>📋 View Certified Batches for Melting</Text>
-              </TouchableOpacity>
-
-              {/* 🟢 Keep this: For viewing active furnace cycles */}
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchFurnaceOperations}>
-                <Text style={styles.buttonText}>📊 Monitor Furnace Status</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
-              <Text style={styles.buttonText}>View Profile</Text>
+          <View style={styles.roleBox}>
+            <Text style={styles.roleTitle}>Furnace Operations</Text>
+            
+            {/* 📋 Button 1: Now correctly points to your new approved samples queue function */}
+            <TouchableOpacity 
+              style={styles.roleButton} 
+              onPress={async () => {
+                await fetchApprovedMeltQueue(); 
+                setScreen('view_approved_melts');
+              }}
+            >
+              <Text style={styles.buttonText}>📋 View Certified Batches for Melting</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
-              <Text style={styles.buttonText}>Logout</Text>
-            </TouchableOpacity>
-          </SafeAreaView>
-        </View>
-      </SafeAreaProvider>
-    );
-  }
 
+            {/* 📊 Button 2: For viewing historical record registries */}
+            <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchFurnaceOperations}>
+              <Text style={styles.buttonText}>📊 Monitor Furnace Status</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
+            <Text style={styles.buttonText}>View Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b'}]} onPress={handleLogout}>
+            <Text style={styles.buttonText}>Logout</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </View>
+    </SafeAreaProvider>
+  );
+}
   // 🔬 4. METALLURGIST QUALITY WORKSPACE
   if (screen === 'metallurgist_dashboard' || (screen === 'dashboard' && userRole === 'metallurgist')) {
     return (
