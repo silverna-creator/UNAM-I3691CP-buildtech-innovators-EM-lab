@@ -202,33 +202,50 @@ D:.
 │       BuildtechInnovators_SRS_I3691CP.docx
 │       BuildtechInnovators_SRS_I3691CP.pdf
 │
-└───src
-    ├───api
-    │       auth.js
-    │       data.js
-    │
-    ├───screens
-    │   │   LogSampleScreen.js
-    │   │   FurnaceOperatorDashboard.js
-    │   │   FurnaceDirectoryScreen.js
-    │   │   SampleDirectoryScreen.js
-    │   │
-    │   ├───Admin
-    │   │       SystemSettingsScreen.js
-    │   │       SupportCenterScreen.js
-    │   │       StaffDirectoryScreen.js
-    │   │
-    │   └───Auth
-    │           SignupScreen.js
-    │
-    ├───config
-    │       firebaseConfig.js
-    │
-    ├───utils
-    │       constants.js
-    │
-    ├───components
-    │       LaboratoryLockdownScreen.js
-    │
-    └───styles
-            globalStyles.js
+└───src/
+  ├── api/
+  │     auth.js                        ← handleLogin, handleLogout, handleSignup, handleForgotPassword, handleInternalPasswordChange
+  │     data.js                        ← all Firestore read/write handlers (samples, furnace, metallurgist, admin)
+  │
+  ├── screens/
+  │     ├── Auth/
+  │     │     SignupScreen.js           ← exists
+  │     │     ProfileScreen.js          ← NEW
+  │     │
+  │     ├── Admin/
+  │     │     SystemSettingsScreen.js   ← exists
+  │     │     SupportCenterScreen.js    ← exists
+  │     │     StaffDirectoryScreen.js   ← exists
+  │     │     AdminDashboard.js         ← NEW
+  │     │
+  │     ├── LabTechnician/             ← NEW folder
+  │     │     LabTechnicianDashboard.js
+  │     │     LogSampleScreen.js        ← move from screens/
+  │     │     SampleDirectoryScreen.js  ← move from screens/
+  │     │     ViewSamplesScreen.js
+  │     │
+  │     ├── Furnace/                   ← NEW folder
+  │     │     FurnaceOperatorDashboard.js ← move from screens/
+  │     │     FurnaceDirectoryScreen.js   ← move from screens/
+  │     │     ViewApprovedMeltsScreen.js
+  │     │     LogMeltCycleScreen.js
+  │     │
+  │     └── Metallurgist/             ← NEW folder
+  │           MetallurgistDashboard.js
+  │           AnalysisQueueScreen.js
+  │           AssayHistoryScreen.js
+  │
+  ├── components/
+  │     LaboratoryLockdownScreen.js    ← exists
+  │     CodeCrashBoundary.js           ← NEW
+  │
+  ├── config/
+  │     firebaseConfig.js              ← exists
+  │
+  ├── utils/
+  │     constants.js                   ← exists (ORE_DATABASE goes here)
+  │
+  └── styles/
+        globalStyles.js                ← exists (StyleSheet goes here)
+
+App.js                                 ← Thin root: state, useEffect router, screen switcher only
