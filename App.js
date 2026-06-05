@@ -810,31 +810,49 @@ const updateFurnaceTelemetry = async () => {
 
   try {
     const docRef = doc(db, "mineral_samples", selectedMeltSample.id);
-    
-    // Create a time-stamped log entry object
+
     const newLogEntry = {
       temperature: parseFloat(currentTempInput),
       loggedAt: new Date().toISOString(),
       durationSoFar: cycleDurationInput || "Not Specified"
     };
 
+    // Update mineral_samples status — preserved exactly as before
     await updateDoc(docRef, {
-      // 📈 Append to the history array smoothly
       temperatureLogs: arrayUnion(newLogEntry),
       currentTemperature: parseFloat(currentTempInput),
       lastFurnaceUpdate: new Date().toISOString(),
-      status: "In Melt Cycle" // Changes status so technicians know it's cooking!
+      status: "In Melt Cycle"
     });
 
-    // Refresh our local selection state so the UI updates live
-    setSelectedMeltSample(prev => ({
-      ...prev,
-      temperatureLogs: prev.temperatureLogs ? [...prev.temperatureLogs, newLogEntry] : [newLogEntry],
-      currentTemperature: parseFloat(currentTempInput)
-    }));
+    // 🔥 Write melt log to furnace_operations (architecture requirement)
+    const meltData = {
+      meltId: selectedMeltSample.displayId || selectedMeltSample.sampleId,
+      temperature: parseFloat(currentTempInput),
+      durationMinutes: cycleDurationInput ? parseInt(cycleDurationInput) : 0,
+      company: normalizeCompany(companyName),
+      loggedBy: fullName,
+      createdAt: new Date().toISOString(),
+      oreType: selectedMeltSample.oreType || "Not Classified",
+      initialWeight: selectedMeltSample.initialWeight || 0,
+      moistureTestResult: selectedMeltSample.moistureTestResult !== undefined ? selectedMeltSample.moistureTestResult : null,
+      flotationPrepResult: selectedMeltSample.flotationPrepResult !== undefined ? selectedMeltSample.flotationPrepResult : null,
+    };
+    await addDoc(collection(db, "furnace_operations"), meltData);
 
+    // ✅ Reset both inputs
     setCurrentTempInput('');
+    setCycleDurationInput('');
+
     alert("🔥 Furnace telemetry log updated successfully!");
+
+    // ⏱️ Auto-navigate back to queue after 3 seconds
+    setTimeout(() => {
+      setSelectedMeltSample(null);
+      fetchApprovedMeltQueue(companyName);
+      setScreen('view_approved_melts');
+    }, 3000);
+
   } catch (error) {
     console.error("Error writing furnace telemetry:", error);
   }
@@ -906,6 +924,11 @@ const fetchLiveFurnaceTelemetry = async (company) => {
 
     try {
       const docRef = doc(db, "mineral_samples", sampleIdToUpdate);
+
+      // App.js — temporary debug line inside submitAssayResults
+console.log("🔍 Attempting to update document ID:", sampleIdToUpdate);
+console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
+
       
       // Build the update bundle dynamically based on which button was pressed
       const updateData = {
@@ -935,7 +958,8 @@ const fetchLiveFurnaceTelemetry = async (company) => {
       setRejectionReason('');
       setSelectedSample(null);
       
-      fetchSamplesForAnalysis();
+       fetchSamplesForAnalysis();
+      fetchMineralSamples(companyName);
     } catch (error) {
       console.error("Error committing assay update:", error);
       const errorMsg = "Write error tracking failed.";
@@ -1116,10 +1140,10 @@ const fetchLiveFurnaceTelemetry = async (company) => {
   />
 )}
 
-
  {screen === 'view_samples' && (
   <ViewSampleScreen 
     loggedSamples={loggedSamples}
+    onRefresh={() => fetchMineralSamples(companyName)} // 👈 add this
     onBack={() => setScreen('lab_technician_dashboard')}
   />
 )}
@@ -1151,6 +1175,11 @@ const fetchLiveFurnaceTelemetry = async (company) => {
       if (nextScreen === 'view_approved_melts') {
         fetchApprovedMeltQueue(companyName);
       }
+
+      if (nextScreen === 'furnace_directory') {
+        fetchFurnaceOperations();
+      }
+
       setScreen(nextScreen);
     }}
     onLogout={handleLogout}

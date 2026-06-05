@@ -30,4 +30,13 @@ export const styles = StyleSheet.create({
   // Add these to globalStyles.js
 label: { color: '#c8d4e6', marginBottom: 5, fontSize: 13, marginLeft: '5%' },
 picker: { backgroundColor: '#232931', color: '#fff', marginBottom: 15 },
+
+// Sample / Assay Cards
+  sampleCard: { backgroundColor: '#1e2d3d', borderRadius: 14, padding: 18, marginVertical: 8, borderLeftWidth: 4, borderLeftColor: '#3498db' },
+  sampleCardHeader: { color: '#3498db', fontSize: 15, fontWeight: 'bold', marginBottom: 8 },
+  sampleCardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  sampleCardLabel: { color: '#7f8c8d', fontSize: 13 },
+  sampleCardValue: { color: '#ecf0f1', fontSize: 13, fontWeight: '500' },
+  sampleCardBadge: { alignSelf: 'flex-start', backgroundColor: '#2c5f8a', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 8 },
+  sampleCardBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
 });

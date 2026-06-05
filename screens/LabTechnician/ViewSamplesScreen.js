@@ -1,9 +1,19 @@
+import React, { useEffect } from 'react';
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styles } from '../../src/styles/globalStyles';
 
-const ViewSampleScreen = ({ loggedSamples, onBack }) => {
+const ViewSampleScreen = ({ loggedSamples, onBack, onRefresh }) => {
+
+  useEffect(() => {
+    if (typeof onRefresh === 'function') onRefresh(); // fetch immediately on mount
+    const interval = setInterval(() => {
+      if (typeof onRefresh === 'function') onRefresh();
+    }, 10000);
+    return () => clearInterval(interval); // cleanup on unmount
+  }, []);
+  
   return (
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
@@ -48,7 +58,7 @@ const ViewSampleScreen = ({ loggedSamples, onBack }) => {
                     
                     {sample.flotationPrepResult != null && (
                       <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
-                        🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} kg</Text>
+                        🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} g/cm³</Text>
                       </Text>
                     )}
 
