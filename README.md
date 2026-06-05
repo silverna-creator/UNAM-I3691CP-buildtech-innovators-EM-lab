@@ -1,5 +1,5 @@
 # BuildTech Innovators – EM Lab
-
+#Project enhancement by Episona Erasmus.
 # Group Members
 
 1. 221070478 – NITRATO, JM  
@@ -24,3 +24,42 @@ Multi-disciplinary Engineering (Civil, Mechanical, Electrical, Mining, Agricultu
 # Project Description
 
 EM Lab is an engineering-focused application developed by BuildTech Innovators to support students in practical and experimental learning. The app will integrate features that allow users to simulate, monitor, and interact with engineering systems using modern technologies such as Python and React Native. It aims to provide an intuitive platform for collaboration, data visualization, and real-time interaction with engineering concepts, helping bridge the gap between theory and practical application.
+
+## Version 1.0
+EM-Lab Laboratory Management System
+
+## User Roles
+- Administrator
+- Lab Technician
+- Metallurgist
+- Furnace Operator
+
+## Login Security
+The system uses authentication before granting access.
+
+## Sample Logging
+Samples are recorded and tracked throughout processing.
+
+## Assay Analysis
+Metallurgists review and approve samples.
+
+## Furnace Operations
+Approved samples are sent for furnace processing.
+
+## Multi-Tenant Architecture
+Each company accesses only its own data.
+
+## Notifications
+Users receive updates on important laboratory events.
+
+## Dashboard Monitoring
+Dashboards provide operational visibility.
+
+## Data Validation
+Input validation improves data quality.
+
+## Error Handling
+The system provides feedback for invalid operations.
+
+## Sample Approval Workflow
+Pending Analysis → Approved or Declined.
