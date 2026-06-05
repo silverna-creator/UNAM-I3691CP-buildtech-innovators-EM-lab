@@ -47,4 +47,7 @@ Metallurgists review and approve samples.
 Each company accesses only its own data.
 
 ## Notifications
-Users receive updates on important laboratory events.
+Users receive updates on important laboratory events. 
+
+## Dashboard Monitoring
+Dashboards provide operational visibility.
