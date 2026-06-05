@@ -1140,10 +1140,10 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
   />
 )}
 
-
  {screen === 'view_samples' && (
   <ViewSampleScreen 
     loggedSamples={loggedSamples}
+    onRefresh={() => fetchMineralSamples(companyName)} // 👈 add this
     onBack={() => setScreen('lab_technician_dashboard')}
   />
 )}
