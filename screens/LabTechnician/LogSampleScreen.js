@@ -52,6 +52,16 @@ const LogSampleScreen = ({
                 ))}
               </Picker>
 
+              <Text style={styles.label}>Moisture Content Test (%):</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 4.5"
+                value={moistureValue}
+                onChangeText={setMoistureValue}
+                keyboardType="numeric"
+                placeholderTextColor="#888"
+              />
+
               <Text style={styles.label}>Flotation Prep Result (%):</Text>
               <TextInput
                 style={styles.input}
