@@ -63,3 +63,6 @@ Pending Analysis → Approved or Declined.
 
 ## Security Controls
 User access is controlled by role permissions.
+
+## Future Improvements
+Additional notifications and reporting features are planned.
