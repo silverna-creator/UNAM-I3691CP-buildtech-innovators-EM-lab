@@ -66,3 +66,6 @@ User access is controlled by role permissions.
 
 ## Future Improvements
 Additional notifications and reporting features are planned.
+
+## Contributors
+BuildTech Innovators Development Team
