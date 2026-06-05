@@ -810,31 +810,49 @@ const updateFurnaceTelemetry = async () => {
 
   try {
     const docRef = doc(db, "mineral_samples", selectedMeltSample.id);
-    
-    // Create a time-stamped log entry object
+
     const newLogEntry = {
       temperature: parseFloat(currentTempInput),
       loggedAt: new Date().toISOString(),
       durationSoFar: cycleDurationInput || "Not Specified"
     };
 
+    // Update mineral_samples status — preserved exactly as before
     await updateDoc(docRef, {
-      // 📈 Append to the history array smoothly
       temperatureLogs: arrayUnion(newLogEntry),
       currentTemperature: parseFloat(currentTempInput),
       lastFurnaceUpdate: new Date().toISOString(),
-      status: "In Melt Cycle" // Changes status so technicians know it's cooking!
+      status: "In Melt Cycle"
     });
 
-    // Refresh our local selection state so the UI updates live
-    setSelectedMeltSample(prev => ({
-      ...prev,
-      temperatureLogs: prev.temperatureLogs ? [...prev.temperatureLogs, newLogEntry] : [newLogEntry],
-      currentTemperature: parseFloat(currentTempInput)
-    }));
+    // 🔥 Write melt log to furnace_operations (architecture requirement)
+    const meltData = {
+      meltId: selectedMeltSample.displayId || selectedMeltSample.sampleId,
+      temperature: parseFloat(currentTempInput),
+      durationMinutes: cycleDurationInput ? parseInt(cycleDurationInput) : 0,
+      company: normalizeCompany(companyName),
+      loggedBy: fullName,
+      createdAt: new Date().toISOString(),
+      oreType: selectedMeltSample.oreType || "Not Classified",
+      initialWeight: selectedMeltSample.initialWeight || 0,
+      moistureTestResult: selectedMeltSample.moistureTestResult !== undefined ? selectedMeltSample.moistureTestResult : null,
+      flotationPrepResult: selectedMeltSample.flotationPrepResult !== undefined ? selectedMeltSample.flotationPrepResult : null,
+    };
+    await addDoc(collection(db, "furnace_operations"), meltData);
 
+    // ✅ Reset both inputs
     setCurrentTempInput('');
+    setCycleDurationInput('');
+
     alert("🔥 Furnace telemetry log updated successfully!");
+
+    // ⏱️ Auto-navigate back to queue after 3 seconds
+    setTimeout(() => {
+      setSelectedMeltSample(null);
+      fetchApprovedMeltQueue(companyName);
+      setScreen('view_approved_melts');
+    }, 3000);
+
   } catch (error) {
     console.error("Error writing furnace telemetry:", error);
   }
