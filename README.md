@@ -66,3 +66,7 @@ Pending Analysis → Approved or Declined.
 
 ## Security Controls
 User access is controlled by role permissions.
+
+git add .
+git commit -m "Improved login button styling"
+git push
