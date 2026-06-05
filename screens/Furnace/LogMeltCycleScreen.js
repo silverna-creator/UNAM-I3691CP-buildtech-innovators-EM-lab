@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
-import { styles } from '../../styles/globalStyles';
+import { styles } from '../../src/styles/globalStyles';
 
 const MeltControlScreen = ({ selectedSample, temp, setTemp, duration, setDuration, onSubmit, onReturn }) => {
   return (

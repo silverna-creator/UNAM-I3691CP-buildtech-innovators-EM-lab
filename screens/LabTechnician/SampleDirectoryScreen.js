@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { styles } from '../styles/globalStyles'; // Use your centralized styles
+import { styles } from '../../src/styles/globalStyles'; // Use your centralized styles
 
 const SampleDirectoryScreen = ({ loggedSamples, onBack }) => {
   return (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { styles } from '../../styles/globalStyles';
+import { styles } from '../../src/styles/globalStyles';
 
 const FurnaceQueueScreen = ({ furnaceLogs, onSelectSample, onBack }) => {
   return (

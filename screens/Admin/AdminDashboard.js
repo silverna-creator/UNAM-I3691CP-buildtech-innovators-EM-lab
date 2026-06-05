@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 // Assuming styles are in src/styles/globalStyles.js
-import { styles } from '../../styles/globalStyles'; 
+import { styles } from '../../src/styles/globalStyles'; 
 
 const AdminDashboard = ({ 
   companyName, 

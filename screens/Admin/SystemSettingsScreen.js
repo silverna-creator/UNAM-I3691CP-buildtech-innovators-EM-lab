@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView, Platform, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { styles } from '../../styles/globalStyles';
+import { styles } from '../../src/styles/globalStyles';
 
 const SystemSettingsScreen = ({ maxFurnaceTemp, setMaxFurnaceTemp, isLabActive, setIsLabActive, onSave, onCancel }) => {
   return (

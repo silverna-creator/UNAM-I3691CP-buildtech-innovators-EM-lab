@@ -1,19 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-
+import { auth, db, firebaseConfig } from './src/config/firebaseConfig'
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser, signOut, getAuth } from 'firebase/auth'
+import { initializeApp } from 'firebase/app'
+import { getDoc, doc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, getDocs, arrayUnion, serverTimestamp } from 'firebase/firestore'
 import LoginScreen from './screens/Auth/LoginScreen';
-import { getStaffList, deleteStaffMember } from './src/api/data';
-import LaboratoryLockdownScreen from './src/components/LaboratoryLockdownScreen';
-import CodeCrashBoundary from './components/CodeCrashBoundary';
+import CodeCrashBoundary from './src/components/CodeCrashBoundary';
 import LogSampleScreen from './screens/LabTechnician/LogSampleScreen';
-import ViewSampleScreen from './screens/LabTechnician/ViewSampleScreen';
-import StaffDirectory from './screens/Admin/StaffDirectory';
-import LogMeltCycle from './screens/Furnace/logmeltcycle';
-import ViewApprovedMelts from './screens/Furnace/viewapprovedmelts';
-import AssayHistoryScreen from './screens/Metallurgist/assayhistoryscreen';
-import AnalysisQueueScreen from './screens/Metallurgist/analysisqueuescreen';
+import ViewSampleScreen from './screens/LabTechnician/ViewSamplesScreen';
+import StaffDirectoryScreen from './screens/Admin/StaffDirectoryScreen';
+import MeltControlScreen from './screens/Furnace/LogMeltCycleScreen';
+import FurnaceQueueScreen from './screens/Furnace/ViewApprovedMeltsScreen';
+import AssayHistoryScreen from './screens/Metallurgist/AssayHistoryScreen';
+import AnalysisQueueScreen from './screens/Metallurgist/AnalysisQueueScreen';
+import SignupScreen from './screens/Auth/SignupScreen';
+import SupportCenterScreen from './screens/Admin/SupportCenterScreen';
+import SampleDirectoryScreen from './screens/LabTechnician/SampleDirectoryScreen';
+import SystemSettingsScreen from './screens/Admin/SystemSettingsScreen';
+import FurnaceDirectoryScreen from './screens/Furnace/FurnaceDirectoryScreen';
+import AdminDashboard from './screens/Admin/AdminDashboard';
+import LabTechnicianDashboard from './screens/LabTechnician/LabTechnicianDashboard';
+import FurnaceOperatorDashboard from './screens/Furnace/FurnaceOperatorDashboard';
+import MetallurgistDashboard from './screens/Metallurgist/MetallurgistDashboard';
+import ProfileScreen from './screens/Auth/ProfileScreen';
 import { styles } from './src/styles/globalStyles';
+
+const normalizeCompany = (name) => {
+  if (!name || typeof name !== 'string') return '';
+  return name.trim().toUpperCase().replace(/\s+/g, '_');
+};
+
+const isAdminRole = (role) => {
+  if (!role) return false;
+  const normalized = role.toLowerCase().trim();
+  return normalized === 'admin' || normalized === 'super_admin' || normalized === 'superadmin';
+};
 
 export default function App() {
   const [staffList, setStaffList] = useState([]);
@@ -1087,7 +1109,6 @@ const fetchLiveFurnaceTelemetry = async (company) => {
   />
 )}
 
-  // 1. Assay History: Only receives history data and a back function
 {screen === 'assay_history' && (
   <AssayHistoryScreen 
     assayHistory={assayHistory} 
@@ -1095,20 +1116,6 @@ const fetchLiveFurnaceTelemetry = async (company) => {
   />
 )}
 
-// 2. Analysis Queue: Receives all the complex state for processing samples
-{screen === 'analysis_queue' && (
-  <AnalysisQueueScreen 
-    pendingSamples={pendingSamples}
-    selectedSample={selectedSample}
-    setSelectedSample={setSelectedSample}
-    gradePurity={gradePurity}
-    setGradePurity={setGradePurity}
-    rejectionReason={rejectionReason}
-    setRejectionReason={setRejectionReason}
-    submitAssayResults={submitAssayResults}
-    onBack={() => setScreen('metallurgist_dashboard')}
-  />
-)}
 
  {screen === 'view_samples' && (
   <ViewSampleScreen 
