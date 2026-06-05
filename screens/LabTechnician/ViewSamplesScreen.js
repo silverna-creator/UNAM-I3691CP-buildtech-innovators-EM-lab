@@ -48,7 +48,7 @@ const ViewSampleScreen = ({ loggedSamples, onBack }) => {
                     
                     {sample.flotationPrepResult != null && (
                       <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
-                        🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} kg</Text>
+                        🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} g/cm³</Text>
                       </Text>
                     )}
 
