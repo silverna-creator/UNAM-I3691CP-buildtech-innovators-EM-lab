@@ -27,3 +27,9 @@ EM Lab is an engineering-focused application developed by BuildTech Innovators t
 
 ## Version 1.0
 EM-Lab Laboratory Management System
+
+## User Roles
+- Administrator
+- Lab Technician
+- Metallurgist
+- Furnace Operator
