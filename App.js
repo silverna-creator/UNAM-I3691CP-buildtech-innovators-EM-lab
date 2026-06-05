@@ -1005,6 +1005,25 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
   }
 };
 
+const handleSaveSettings = async () => {
+  try {
+    const docRef = doc(db, "system_status", "lab_configuration");
+    await updateDoc(docRef, {
+      maxTemperatureLimit: parseFloat(maxFurnaceTemp) || 1200,
+      isLabActive: isLabActive,
+      lastUpdatedBy: fullName,
+      updatedAt: new Date().toISOString()
+    });
+    const msg = "System settings saved successfully!";
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
+    setScreen('dashboard');
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    const msg = `Failed to save settings: ${error.message}`;
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+  }
+};
+
   return (
   <CodeCrashBoundary>
     <View style={styles.container}>
