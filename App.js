@@ -1169,6 +1169,11 @@ const fetchLiveFurnaceTelemetry = async (company) => {
       if (nextScreen === 'view_approved_melts') {
         fetchApprovedMeltQueue(companyName);
       }
+
+      if (nextScreen === 'furnace_directory') {
+        fetchFurnaceOperations();
+      }
+      
       setScreen(nextScreen);
     }}
     onLogout={handleLogout}
