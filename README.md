@@ -51,3 +51,6 @@ Users receive updates on important laboratory events.
 
 ## Dashboard Monitoring
 Dashboards provide operational visibility.
+
+## Data Validation
+Input validation improves data quality.
