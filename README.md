@@ -45,3 +45,6 @@ Metallurgists review and approve samples.
 
 ## Multi-Tenant Architecture
 Each company accesses only its own data.
+
+## Notifications
+Users receive updates on important laboratory events.
