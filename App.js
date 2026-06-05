@@ -924,6 +924,11 @@ const fetchLiveFurnaceTelemetry = async (company) => {
 
     try {
       const docRef = doc(db, "mineral_samples", sampleIdToUpdate);
+
+      // App.js — temporary debug line inside submitAssayResults
+console.log("🔍 Attempting to update document ID:", sampleIdToUpdate);
+console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
+
       
       // Build the update bundle dynamically based on which button was pressed
       const updateData = {
@@ -953,7 +958,8 @@ const fetchLiveFurnaceTelemetry = async (company) => {
       setRejectionReason('');
       setSelectedSample(null);
       
-      fetchSamplesForAnalysis();
+       fetchSamplesForAnalysis();
+      fetchMineralSamples(companyName);
     } catch (error) {
       console.error("Error committing assay update:", error);
       const errorMsg = "Write error tracking failed.";
@@ -1173,7 +1179,7 @@ const fetchLiveFurnaceTelemetry = async (company) => {
       if (nextScreen === 'furnace_directory') {
         fetchFurnaceOperations();
       }
-      
+
       setScreen(nextScreen);
     }}
     onLogout={handleLogout}
