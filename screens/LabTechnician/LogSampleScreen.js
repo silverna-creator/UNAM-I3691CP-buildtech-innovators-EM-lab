@@ -1,3 +1,5 @@
+//screens/LabTechnicians/LogSampleScreen.js
+
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

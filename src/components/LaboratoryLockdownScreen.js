@@ -1,3 +1,5 @@
+// src/components/LaboratoryLockdownScreen.js
+
 import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

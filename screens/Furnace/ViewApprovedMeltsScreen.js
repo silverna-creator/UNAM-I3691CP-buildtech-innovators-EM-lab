@@ -1,3 +1,5 @@
+//screens/Furnace/ViewApprovedMeltScreen.js
+
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

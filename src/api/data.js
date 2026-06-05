@@ -1,3 +1,5 @@
+//src/api/ data,js
+
 import { db } from '../config/firebaseConfig';
 import { collection, query, where, getDocs, doc, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { normalizeCompany } from '../utils/constants';

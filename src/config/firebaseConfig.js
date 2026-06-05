@@ -1,3 +1,5 @@
+//config/ firebaseConfig.s
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, initializeAuth, getReactNativePersistence, onAuthStateChanged } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";

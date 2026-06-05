@@ -1,3 +1,4 @@
+//screens/Furnace/ FurnaceOperatorDashbord.js
 
 import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';

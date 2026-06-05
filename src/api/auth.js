@@ -1,3 +1,5 @@
+//src/api/ auth.js
+
 import { 
   getAuth, 
   initializeAuth,

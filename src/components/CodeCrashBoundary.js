@@ -1,3 +1,5 @@
+//src/components/CodeCrashBoundary.js
+
 // src/components/CodeCrashBoundary.js
 import React from 'react';
 import { View, Text } from 'react-native';
