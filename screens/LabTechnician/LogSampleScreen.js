@@ -62,10 +62,10 @@ const LogSampleScreen = ({
                 placeholderTextColor="#888"
               />
 
-              <Text style={styles.label}>Flotation Prep Result (%):</Text>
+              <Text style={styles.label}>Flotation Prep Result (g/cm³):</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. 78.2"
+                placeholder="e.g. 2.85"
                 value={flotationValue}
                 onChangeText={setFlotationValue}
                 keyboardType="numeric"
