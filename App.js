@@ -612,8 +612,15 @@ const fetchStaffDirectory = async () => {
 
       console.log("Writing customized document path directly...", uniqueCompositeId);
 
-      // DIRECT SECURE WRITE TO FIRESTORE
       const customDocRef = doc(db, "mineral_samples", uniqueCompositeId);
+      const existingDoc = await getDoc(customDocRef);
+
+      if (existingDoc.exists()) {
+        const msg = `Sample ID "${cleanSampleId}" already exists in the system. Please use a unique batch code.`;
+        Platform.OS === 'web' ? alert(msg) : Alert.alert("Duplicate ID", msg);
+        return;
+      }
+
       await setDoc(customDocRef, sampleData);
       
       console.log("Sample stored successfully with Unique ID:", uniqueCompositeId);
