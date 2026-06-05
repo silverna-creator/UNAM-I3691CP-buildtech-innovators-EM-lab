@@ -57,3 +57,6 @@ Input validation improves data quality.
 
 ## Error Handling
 The system provides feedback for invalid operations.
+
+## Sample Approval Workflow
+Pending Analysis → Approved or Declined.
