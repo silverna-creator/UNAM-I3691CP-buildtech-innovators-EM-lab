@@ -42,3 +42,6 @@ Samples are recorded and tracked throughout processing.
 
 ## Assay Analysis
 Metallurgists review and approve samples.
+
+## Multi-Tenant Architecture
+Each company accesses only its own data.
