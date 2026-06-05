@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
-import { styles } from '../styles/globalStyles';
-import { ORE_DATABASE } from '../utils/constants';
+import { styles } from '../../src/styles/globalStyles';
+import { ORE_DATABASE } from '../../src/utils/constants';
 
 const LogSampleScreen = ({ 
   sampleId, setSampleId, 

@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { styles } from '../styles/globalStyles';
+import { styles } from '../../src/styles/globalStyles';
 
 const FurnaceOperatorDashboard = ({ onNavigate, onLogout }) => {
   return (
