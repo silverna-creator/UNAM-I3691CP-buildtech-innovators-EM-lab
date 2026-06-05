@@ -48,11 +48,15 @@ const FurnaceDirectoryScreen = ({ furnaceLogs, maxFurnaceTemp, onBack }) => {
                     <Text style={{ color: '#c8d4e6', fontSize: 13, marginTop: 2 }}>
                       ⏱️ Cycle Duration: {item.durationMinutes || item.cycleDurationTime} mins
                     </Text>
-                    
-                    <View style={{ backgroundColor: '#1a1d24', padding: 8, borderRadius: 6, marginTop: 8, marginBottom: 4 }}>
+                   
+                   <View style={{ backgroundColor: '#1a1d24', padding: 8, borderRadius: 6, marginTop: 8, marginBottom: 4 }}>
                       <Text style={{ color: '#c8d4e6', fontSize: 12 }}>
                         📦 Ore Matrix: {item.oreType || 'N/A'} | ⚖️ Intake Mass: {item.initialWeight || 0} kg
                       </Text>
+                      <Text style={{ color: '#c8d4e6', fontSize: 12, marginTop: 4 }}>
+                        💧 Moisture: {item.moistureTestResult != null ? `${item.moistureTestResult}%` : 'Not tested'} | 🧪 Flotation: {item.flotationPrepResult != null ? `${item.flotationPrepResult} g/cm³` : 'Not tested'}
+                      </Text>
+                      
                     </View>
                   </View>
                 );
