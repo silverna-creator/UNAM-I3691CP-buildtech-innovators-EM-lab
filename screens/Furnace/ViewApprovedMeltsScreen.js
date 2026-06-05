@@ -18,19 +18,50 @@ const FurnaceQueueScreen = ({ furnaceLogs, onSelectSample, onBack }) => {
               </Text>
             ) : (
               furnaceLogs.map((sample) => (
-                <View key={sample.id} style={[styles.roleBox, { borderColor: '#2ecc71', borderWidth: 1, marginBottom: 10, padding: 15 }]}>
-                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
-                    Sample ID: {sample.displayId || sample.sampleId}
+                <View key={sample.id} style={[styles.sampleCard, { borderLeftColor: '#2ecc71' }]}>
+
+                  <Text style={styles.sampleCardHeader}>
+                    🧪 {sample.displayId || sample.sampleId}
                   </Text>
-                  <Text style={{ color: '#c8d4e6', fontSize: 14 }}>
-                    Ore Type: {sample.oreType} | Purity: {sample.purityGrade || sample.purity}
-                  </Text>
-                  <TouchableOpacity 
-                    style={[styles.button, { backgroundColor: '#e67e22', marginTop: 10 }]} 
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Ore Type</Text>
+                    <Text style={styles.sampleCardValue}>{sample.oreType || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Purity Grade</Text>
+                    <Text style={[styles.sampleCardValue, { color: '#2ecc71' }]}>{sample.purityGrade || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Initial Weight</Text>
+                    <Text style={styles.sampleCardValue}>
+                      {sample.initialWeight != null ? `${sample.initialWeight} kg` : 'N/A'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Moisture Content</Text>
+                    <Text style={styles.sampleCardValue}>
+                      {sample.moistureTestResult != null ? `${sample.moistureTestResult}%` : 'Not tested'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Flotation Prep</Text>
+                    <Text style={styles.sampleCardValue}>
+                      {sample.flotationPrepResult != null ? `${sample.flotationPrepResult} g/cm³` : 'Not tested'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.roleButton, { backgroundColor: '#e67e22', marginTop: 12 }]}
                     onPress={() => onSelectSample(sample)}
                   >
                     <Text style={styles.buttonText}>🔥 Initialize Melt Cycle</Text>
                   </TouchableOpacity>
+
                 </View>
               ))
             )}
