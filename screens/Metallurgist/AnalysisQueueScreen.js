@@ -43,27 +43,46 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
           ) : (
             <ScrollView showsVerticalScrollIndicator={false}>
               {pendingSamples.map((sample) => (
-                <View key={sample.id} style={styles.roleBox}>
+                <View key={sample.id} style={styles.sampleCard}>
 
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                    Sample: {sample.displayId || sample.sampleId}
-                  </Text>
-                  <Text style={{ color: '#aaa', fontSize: 13 }}>
-                    Ore Type: {sample.oreType || 'N/A'}
-                  </Text>
-                  <Text style={{ color: '#aaa', fontSize: 13 }}>
-                    Initial Weight: {sample.initialWeight != null ? `${sample.initialWeight} kg` : 'N/A'}
-                  </Text>
-                  <Text style={{ color: '#aaa', fontSize: 13 }}>
-                    Moisture Content: {sample.moistureTestResult != null ? `${sample.moistureTestResult}%` : 'Not tested'}
-                  </Text>
-                  <Text style={{ color: '#aaa', fontSize: 13 }}>
-                    Flotation Prep: {sample.flotationPrepResult != null ? `${sample.flotationPrepResult} g/cm³` : 'Not tested'}
+                  <Text style={styles.sampleCardHeader}>
+                    🧪 {sample.displayId || sample.sampleId}
                   </Text>
 
-                  <TouchableOpacity style={styles.roleButton} onPress={() => setSelectedSample(sample)}>
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Ore Type</Text>
+                    <Text style={styles.sampleCardValue}>{sample.oreType || 'N/A'}</Text>
+                  </View>
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Initial Weight</Text>
+                    <Text style={styles.sampleCardValue}>
+                      {sample.initialWeight != null ? `${sample.initialWeight} kg` : 'N/A'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Moisture Content</Text>
+                    <Text style={styles.sampleCardValue}>
+                      {sample.moistureTestResult != null ? `${sample.moistureTestResult}%` : 'Not tested'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Flotation Prep</Text>
+                    <Text style={styles.sampleCardValue}>
+                      {sample.flotationPrepResult != null ? `${sample.flotationPrepResult} g/cm³` : 'Not tested'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.sampleCardBadge}>
+                    <Text style={styles.sampleCardBadgeText}>⏳ Pending Analysis</Text>
+                  </View>
+
+                  <TouchableOpacity style={[styles.roleButton, { marginTop: 12 }]} onPress={() => setSelectedSample(sample)}>
                     <Text style={styles.buttonText}>🔬 Run Chemical Analysis</Text>
                   </TouchableOpacity>
+
                 </View>
               ))}
 
