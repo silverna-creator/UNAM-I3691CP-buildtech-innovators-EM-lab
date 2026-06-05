@@ -33,3 +33,6 @@ EM-Lab Laboratory Management System
 - Lab Technician
 - Metallurgist
 - Furnace Operator
+
+## Login Security
+The system uses authentication before granting access.
