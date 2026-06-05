@@ -39,3 +39,5 @@ const FurnaceOperatorDashboard = ({ onNavigate, onLogout }) => {
     </SafeAreaProvider>
   );
 };
+
+export default FurnaceOperatorDashboard;
