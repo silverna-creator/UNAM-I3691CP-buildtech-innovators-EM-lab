@@ -60,3 +60,6 @@ The system provides feedback for invalid operations.
 
 ## Sample Approval Workflow
 Pending Analysis → Approved or Declined.
+
+## Security Controls
+User access is controlled by role permissions.
