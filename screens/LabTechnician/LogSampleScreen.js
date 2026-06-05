@@ -52,6 +52,22 @@ const LogSampleScreen = ({
                 ))}
               </Picker>
 
+              <Text style={styles.label}>Flotation Prep Result (%):</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 78.2"
+                value={flotationValue}
+                onChangeText={setFlotationValue}
+                keyboardType="numeric"
+                placeholderTextColor="#888"
+              />
+
+              {/* ── REMINDER: at least one field required to commit ── */}
+              <Text style={{ color: '#888', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>
+                * At least one test result is required to commit.
+              </Text>
+
+
               <TouchableOpacity style={styles.loginButton} onPress={onLogSample}>
                 <Text style={styles.loginButtonText}>Commit Sample</Text>
               </TouchableOpacity>
