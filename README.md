@@ -54,3 +54,6 @@ Dashboards provide operational visibility.
 
 ## Data Validation
 Input validation improves data quality.
+
+## Error Handling
+The system provides feedback for invalid operations.
