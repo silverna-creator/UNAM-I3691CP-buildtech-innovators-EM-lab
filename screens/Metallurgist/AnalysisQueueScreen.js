@@ -12,7 +12,22 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
           
           {selectedSample ? (
             <View style={styles.roleBox}>
-              <Text style={{ color: '#e67e22', fontWeight: 'bold' }}>Batch: {selectedSample.sampleId}</Text>
+              <Text style={{ color: '#e67e22', fontWeight: 'bold', fontSize: 16, marginBottom: 6 }}>
+                Batch: {selectedSample.displayId || selectedSample.sampleId}
+              </Text>
+              <Text style={{ color: '#aaa', fontSize: 13 }}>
+                Ore Type: {selectedSample.oreType || 'N/A'}
+              </Text>
+              <Text style={{ color: '#aaa', fontSize: 13 }}>
+                Initial Weight: {selectedSample.initialWeight != null ? `${selectedSample.initialWeight} kg` : 'N/A'}
+              </Text>
+              <Text style={{ color: '#aaa', fontSize: 13 }}>
+                Moisture Content: {selectedSample.moistureTestResult != null ? `${selectedSample.moistureTestResult}%` : 'Not tested'}
+              </Text>
+              <Text style={{ color: '#aaa', fontSize: 13, marginBottom: 10 }}>
+                Flotation Prep: {selectedSample.flotationPrepResult != null ? `${selectedSample.flotationPrepResult} g/cm³` : 'Not tested'}
+              </Text>
+
               <TextInput style={styles.input} placeholder="Enter Purity Grade" value={gradePurity} onChangeText={setGradePurity} />
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2ecc71' }]} onPress={() => submitAssayResults(selectedSample.id, 'Approved')}>
                 <Text style={styles.buttonText}>🔒 Seal & Certify</Text>
@@ -29,12 +44,29 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
             <ScrollView showsVerticalScrollIndicator={false}>
               {pendingSamples.map((sample) => (
                 <View key={sample.id} style={styles.roleBox}>
-                  <Text style={{ color: '#fff' }}>Sample: {sample.sampleId}</Text>
+
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                    Sample: {sample.displayId || sample.sampleId}
+                  </Text>
+                  <Text style={{ color: '#aaa', fontSize: 13 }}>
+                    Ore Type: {sample.oreType || 'N/A'}
+                  </Text>
+                  <Text style={{ color: '#aaa', fontSize: 13 }}>
+                    Initial Weight: {sample.initialWeight != null ? `${sample.initialWeight} kg` : 'N/A'}
+                  </Text>
+                  <Text style={{ color: '#aaa', fontSize: 13 }}>
+                    Moisture Content: {sample.moistureTestResult != null ? `${sample.moistureTestResult}%` : 'Not tested'}
+                  </Text>
+                  <Text style={{ color: '#aaa', fontSize: 13 }}>
+                    Flotation Prep: {sample.flotationPrepResult != null ? `${sample.flotationPrepResult} g/cm³` : 'Not tested'}
+                  </Text>
+
                   <TouchableOpacity style={styles.roleButton} onPress={() => setSelectedSample(sample)}>
                     <Text style={styles.buttonText}>🔬 Run Chemical Analysis</Text>
                   </TouchableOpacity>
                 </View>
               ))}
+
             </ScrollView>
           )}
           <TouchableOpacity style={styles.button} onPress={onBack}><Text style={styles.buttonText}>Return to Dashboard</Text></TouchableOpacity>
