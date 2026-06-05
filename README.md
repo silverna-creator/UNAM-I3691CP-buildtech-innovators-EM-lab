@@ -39,3 +39,6 @@ The system uses authentication before granting access.
 
 ## Sample Logging
 Samples are recorded and tracked throughout processing.
+
+## Assay Analysis
+Metallurgists review and approve samples.
