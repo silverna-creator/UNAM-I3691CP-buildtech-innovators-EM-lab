@@ -36,3 +36,6 @@ EM-Lab Laboratory Management System
 
 ## Login Security
 The system uses authentication before granting access.
+
+## Sample Logging
+Samples are recorded and tracked throughout processing.
