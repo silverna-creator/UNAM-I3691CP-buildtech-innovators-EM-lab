@@ -13,7 +13,7 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
           {selectedSample ? (
             <View style={styles.roleBox}>
               <Text style={{ color: '#e67e22', fontWeight: 'bold', fontSize: 16, marginBottom: 6 }}>
-                Batch: {selectedSample.displayId || selectedSample.sampleId}
+                Batch: {selectedSample.sampleId || selectedSample.displayId}
               </Text>
               <Text style={{ color: '#aaa', fontSize: 13 }}>
                 Ore Type: {selectedSample.oreType || 'N/A'}
@@ -46,7 +46,7 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
                 <View key={sample.id} style={styles.sampleCard}>
 
                   <Text style={styles.sampleCardHeader}>
-                    🧪 {sample.displayId || sample.sampleId}
+                    🧪 {sample.sampleId || sample.displayId}
                   </Text>
 
                   <View style={styles.sampleCardRow}>
