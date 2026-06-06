@@ -127,6 +127,9 @@ const [selectedOre, setSelectedOre] = useState('');
           
           console.log("DEBUG: Final parsed state assigned to app:", currentLabActive);
           setIsLabActive(currentLabActive); 
+           if (dbData.maxTemperatureLimit !== undefined) {
+            setMaxFurnaceTemp(String(dbData.maxTemperatureLimit));
+          }
         } else {
           console.warn("DEBUG: Document system_status/lab_configuration does not exist! Defaulting to closed (false).");
           currentLabActive = false; // Sync local routing logic fallback
@@ -1094,6 +1097,8 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
 
 const handleSaveSettings = async () => {
   try {
+
+    const parsedTemp = parseFloat(maxFurnaceTemp);
     const docRef = doc(db, "system_status", "lab_configuration");
     await updateDoc(docRef, {
       maxTemperatureLimit: parseFloat(maxFurnaceTemp),
@@ -1101,6 +1106,7 @@ const handleSaveSettings = async () => {
       lastUpdatedBy: fullName,
       updatedAt: new Date().toISOString()
     });
+     setMaxFurnaceTemp(String(parsedTemp)); 
     const msg = "System settings saved successfully!";
     Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
     setScreen('dashboard');
