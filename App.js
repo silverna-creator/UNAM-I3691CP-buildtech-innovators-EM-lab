@@ -127,6 +127,7 @@ const [selectedOre, setSelectedOre] = useState('');
           
           console.log("DEBUG: Final parsed state assigned to app:", currentLabActive);
           setIsLabActive(currentLabActive); 
+
            if (dbData.maxTemperatureLimit !== undefined) {
             setMaxFurnaceTemp(String(dbData.maxTemperatureLimit));
           }
