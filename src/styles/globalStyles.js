@@ -12,11 +12,11 @@ export const styles = StyleSheet.create({
   loginButtonText: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
   
   // Inputs
-  input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000' },
+  input: { backgroundColor: '#2A2A4A', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000', borderWidth: 1, borderColor: '#0047AB'},
   
   // Buttons
   loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10 },
-  button: { backgroundColor: '#2c5f8a', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
+  button: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
   
   // Role/Dashboard Elements
   roleBox: { backgroundColor: '#2c3e50', padding: 20, borderRadius: 15, marginVertical: 20, borderWidth: 1, borderColor: '#3498db' },
@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
   
   // Utils
   switchText: { color: '#c8d4e6', textAlign: 'center', marginTop: 20 },
-  signUpText: { color: '#3498db', fontWeight: 'bold' },
+  signUpText: { color: '#00BFFF', fontWeight: 'bold' },
 
   // Add these to globalStyles.js
 label: { color: '#c8d4e6', marginBottom: 5, fontSize: 13, marginLeft: '5%' },
