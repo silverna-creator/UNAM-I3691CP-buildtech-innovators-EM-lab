@@ -1,5 +1,5 @@
 # BuildTech Innovators – EM Lab
-
+#Updated project documentation
 # Group Members
 
 1. 221070478 – NITRATO, JM  
@@ -24,3 +24,6 @@ Multi-disciplinary Engineering (Civil, Mechanical, Electrical, Mining, Agricultu
 # Project Description
 
 EM Lab is an engineering-focused application developed by BuildTech Innovators to support students in practical and experimental learning. The app will integrate features that allow users to simulate, monitor, and interact with engineering systems using modern technologies such as Python and React Native. It aims to provide an intuitive platform for collaboration, data visualization, and real-time interaction with engineering concepts, helping bridge the gap between theory and practical application.
+
+## Version 1.0
+EM-Lab Laboratory Management System
