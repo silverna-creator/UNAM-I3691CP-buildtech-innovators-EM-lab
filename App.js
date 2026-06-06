@@ -5,6 +5,7 @@ import { auth, db, firebaseConfig } from './src/config/firebaseConfig'
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser, signOut, getAuth } from 'firebase/auth'
 import { initializeApp } from 'firebase/app'
 import { getDoc, doc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, getDocs, arrayUnion, serverTimestamp } from 'firebase/firestore'
+import LaboratoryLockdownScreen from './src/components/LaboratoryLockdownScreen';
 import LoginScreen from './screens/Auth/LoginScreen';
 import CodeCrashBoundary from './src/components/CodeCrashBoundary';
 import LogSampleScreen from './screens/LabTechnician/LogSampleScreen';
@@ -1009,7 +1010,7 @@ const handleSaveSettings = async () => {
   try {
     const docRef = doc(db, "system_status", "lab_configuration");
     await updateDoc(docRef, {
-      maxTemperatureLimit: parseFloat(maxFurnaceTemp) || 1200,
+      maxTemperatureLimit: parseFloat(maxFurnaceTemp),
       isLabActive: isLabActive,
       lastUpdatedBy: fullName,
       updatedAt: new Date().toISOString()
