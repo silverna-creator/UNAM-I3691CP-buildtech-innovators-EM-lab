@@ -1335,6 +1335,8 @@ const markNotificationsRead = async () => {
     setScreen={setScreen}
     handleLogout={handleLogout}
     fetchStaffDirectory={fetchStaffDirectory}
+    notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
   
@@ -1344,6 +1346,8 @@ const markNotificationsRead = async () => {
     setScreen={setScreen}
     handleLogout={handleLogout}
     fetchMineralSamples={fetchMineralSamples}
+     notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
 
@@ -1362,6 +1366,8 @@ const markNotificationsRead = async () => {
       setScreen(nextScreen);
     }}
     onLogout={handleLogout}
+    notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
 
@@ -1372,8 +1378,11 @@ const markNotificationsRead = async () => {
     handleLogout={handleLogout}
     fetchSamplesForAnalysis={fetchSamplesForAnalysis}
     fetchAssayHistory={fetchAssayHistory}
+    notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
+
 
   {screen === 'profile' && (
   <ProfileScreen 
