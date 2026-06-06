@@ -1036,6 +1036,13 @@ const handleSaveSettings = async () => {
         </View>
       )}
 
+      {screen === 'lockdown_block' && (
+  <LaboratoryLockdownScreen
+    onCheckStatus={fetchSystemSettingsStatus}
+    onReturnToLogin={handleLockdownExit}
+  />
+)}
+
   {screen === 'signup' && (
   <SignupScreen 
     isLoggedIn={!!auth.currentUser}
