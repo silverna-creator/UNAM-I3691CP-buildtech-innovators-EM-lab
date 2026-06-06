@@ -7,3 +7,14 @@
         { "fieldPath": "company", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "company", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
