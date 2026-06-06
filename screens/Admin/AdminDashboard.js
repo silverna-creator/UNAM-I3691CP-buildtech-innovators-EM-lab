@@ -42,7 +42,9 @@ const AdminDashboard = ({
                       padding: 10, borderRadius: 6, marginTop: 5, borderColor: isOverheated ? '#e74c3c' : 'transparent', borderWidth: 1 
                     }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>ID: {melt.sampleId || "Active Melt"}</Text>
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>
+  ID: {melt.meltId || melt.sampleId || "Active Melt"}
+</Text>
                         <Text style={{ color: isOverheated ? '#ff8d8f' : '#2ecc71', fontWeight: 'bold', fontSize: 13 }}>
                           {currentTemp}°C / {maxAllowed}°C Limit
                         </Text>

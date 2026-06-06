@@ -4,7 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db, firebaseConfig } from './src/config/firebaseConfig'
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser, signOut, getAuth } from 'firebase/auth'
 import { initializeApp } from 'firebase/app'
-import { getDoc, doc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, getDocs, arrayUnion, serverTimestamp } from 'firebase/firestore'
+import { getDoc, doc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, getDocs, arrayUnion, serverTimestamp, onSnapshot } from 'firebase/firestore'
 import LaboratoryLockdownScreen from './src/components/LaboratoryLockdownScreen';
 import LoginScreen from './screens/Auth/LoginScreen';
 import CodeCrashBoundary from './src/components/CodeCrashBoundary';
