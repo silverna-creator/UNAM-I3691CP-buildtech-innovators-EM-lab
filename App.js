@@ -173,10 +173,11 @@ const [selectedOre, setSelectedOre] = useState('');
             } else if (userRole === 'furnace operator') {
               setScreen('furnace_operator_dashboard');
               fetchApprovedMeltQueue(userCompany);
-            } else if (userRole === 'metallurgist') {
-              console.log("Routing to Metallurgist Portal, pulling queue files...");
-              setScreen('metallurgist_dashboard'); 
-            } else {
+           } else if (userRole === 'metallurgist') {
+  console.log("Routing to Metallurgist Portal, pulling queue files...");
+  setScreen('metallurgist_dashboard');
+  loadPendingSamples(userCompany); // ✅ NEW LINE
+} else {
               setScreen('login');
             }
           }
@@ -283,8 +284,9 @@ const userRole = role ? role.toLowerCase().trim() : '';
           setScreen('furnace_operator_dashboard');
           fetchApprovedMeltQueue(normalizedCompany);
         } else if (cleanRole === 'metallurgist') {
-          setScreen('metallurgist_dashboard');
-        } else {
+  setScreen('metallurgist_dashboard');
+  loadPendingSamples(normalizedCompany); // ✅ NEW LINE
+} else {
           // If role is corrupted or unexpected
           const unknownMsg = `Profile role mismatch: "${userData.role}". Contact your system admin.`;
           Platform.OS === 'web' ? alert(unknownMsg) : Alert.alert("Profile Error", unknownMsg);
@@ -946,38 +948,15 @@ const fetchLiveFurnaceTelemetry = async (company) => {
     }
   };
 
-  const fetchSamplesForAnalysis = async () => {
-    setScreen('analysis_queue');
-    
-    try {
-      const activeCompany = normalizeCompany(companyName);
-      if (!activeCompany) {
-        setPendingSamples([]);
-        return;
-      }
-
-      console.log(`Fetching pending samples for company: ${activeCompany}`);
-      
-      const q = query(
-        collection(db, "mineral_samples"), 
-        where("company", "==", activeCompany),
-        where("status", "==", "Pending Analysis")
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const samples = [];
-      querySnapshot.forEach((doc) => {
-        samples.push({ id: doc.id, ...doc.data() });
-      });
-      
-      setPendingSamples(samples);
-      console.log("Successfully loaded pending samples:", samples.length);
-    } catch (error) {
-      console.error("Database fetch handled gracefully:", error);
+  // App.js
+const fetchSamplesForAnalysis = async () => {
+  setScreen('analysis_queue');
+  await loadPendingSamples(companyName);
+};
       // Even if the network fails, the screen has already shifted, 
       // showing the user a clean "Queue is clear" or empty state instead of freezing!
     }
-  };
+  
 
   // 🔬 2. Submit Chemical Grade Assay Results (Handles both Approve & Decline pathways)
   const submitAssayResults = async (sampleIdToUpdate, actionType) => {
@@ -1136,7 +1115,32 @@ const writeNotification = async (recipientRole, message, type, relatedSampleId =
     console.error("Error writing notification:", error);
   }
 };
-
+// App.js
+const loadPendingSamples = async (targetCompany) => {
+  try {
+    const activeCompany = normalizeCompany(
+      (targetCompany && typeof targetCompany === 'string') ? targetCompany : companyName
+    );
+    if (!activeCompany) {
+      setPendingSamples([]);
+      return;
+    }
+    const q = query(
+      collection(db, "mineral_samples"),
+      where("company", "==", activeCompany),
+      where("status", "==", "Pending Analysis")
+    );
+    const querySnapshot = await getDocs(q);
+    const samples = [];
+    querySnapshot.forEach((doc) => {
+      samples.push({ id: doc.id, ...doc.data() });
+    });
+    setPendingSamples(samples);
+    console.log("Pending samples loaded:", samples.length);
+  } catch (error) {
+    console.error("Error loading pending samples:", error);
+  }
+};
 const fetchNotifications = async () => {
   try {
     const activeCompany = normalizeCompany(companyName);
