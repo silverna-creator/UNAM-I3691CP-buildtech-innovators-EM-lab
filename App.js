@@ -868,7 +868,7 @@ const updateFurnaceTelemetry = async () => {
 
     // 🔥 Write melt log to furnace_operations (architecture requirement)
     const meltData = {
-      meltId: selectedMeltSample.displayId || selectedMeltSample.sampleId,
+      meltId: selectedMeltSample.sampleId || selectedMeltSample.displayId,
       temperature: parseFloat(currentTempInput),
       durationMinutes: cycleDurationInput ? parseInt(cycleDurationInput) : 0,
       company: normalizeCompany(companyName),
