@@ -685,11 +685,18 @@ const fetchStaffDirectory = async () => {
       
       // Dynamic refresh on the dashboard component
       fetchMineralSamples(cleanCompany);
+       await writeNotification(
+  'metallurgist',
+  `New sample ${cleanSampleId} has been logged by ${finalLoggedBy} and is ready for analysis.`,
+  'new_sample',
+  cleanSampleId
+);
     } catch (error) {
       console.error("Detailed Error Logging Catch:", JSON.stringify(error, null, 2) || error.message);
       const standardError = `Failed to log sample: ${error?.message || 'Data integrity fault'}`;
       Platform.OS === 'web' ? alert(standardError) : Alert.alert("Error", standardError);
     }
+
 };
   
 const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) => {
@@ -904,6 +911,13 @@ console.log("🔍 selectedMeltSample.id:", selectedMeltSample.id);
 
     alert("🔥 Furnace telemetry log updated successfully!");
 
+    await writeNotification(
+  'admin',
+  `Furnace telemetry update: ${selectedMeltSample.sampleId || selectedMeltSample.displayId} recorded at ${currentTempInput}°C by ${fullName}.`,
+  'melt_telemetry',
+  selectedMeltSample.sampleId || selectedMeltSample.displayId
+);
+
     // ⏱️ Auto-navigate back to queue after 3 seconds
     setTimeout(() => {
       setSelectedMeltSample(null);
@@ -1023,6 +1037,28 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
       const errorMsg = "Write error tracking failed.";
       Platform.OS === 'web' ? alert(errorMsg) : Alert.alert("Error", errorMsg);
     }
+
+    if (actionType === 'Approved') {
+  await writeNotification(
+    'lab technician',
+    `Sample ${sampleIdToUpdate} has been certified with purity grade ${gradePurity}.`,
+    'sample_approved',
+    sampleIdToUpdate
+  );
+  await writeNotification(
+    'furnace operator',
+    `Sample ${sampleIdToUpdate} has been approved and is ready for melt cycle.`,
+    'sample_approved',
+    sampleIdToUpdate
+  );
+} else {
+  await writeNotification(
+    'lab technician',
+    `Sample ${sampleIdToUpdate} has been declined. Reason: ${rejectionReason}.`,
+    'sample_declined',
+    sampleIdToUpdate
+  );
+} 
   };
   
   const fetchAssayHistory = async () => {
