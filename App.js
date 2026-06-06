@@ -190,6 +190,39 @@ const [selectedOre, setSelectedOre] = useState('');
   return unsubscribe;
 }, []);
 
+useEffect(() => {
+  // Only run the listener when a non-admin user is logged in
+  if (!user) return;
+
+  const isAdmin = role ? isAdminRole(role) : false;
+  if (isAdmin) return; // Admins are never locked out
+
+  const docRef = doc(db, "system_status", "lab_configuration");
+
+  const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const labActive = data.isLabActive === true || data.isLabActive === "true";
+      setIsLabActive(labActive);
+
+      // 🔒 If lab just went inactive and user is inside the app — lock them out immediately
+      if (!labActive && screen !== 'lockdown_block' && screen !== 'login') {
+        console.log("🔒 Lab lockdown detected — redirecting non-admin user.");
+        setScreen('lockdown_block');
+      }
+
+      // 🟢 If lab came back online and user is on lockdown screen — release them
+      if (labActive && screen === 'lockdown_block') {
+        console.log("🟢 Lab reactivated — releasing lockdown.");
+        setScreen('login'); // Send back to login to re-authenticate cleanly
+      }
+    }
+  });
+
+  return () => unsubscribe(); // Cleanup on logout or unmount
+}, [user, role, screen]);
+
+
 const userRole = role ? role.toLowerCase().trim() : '';
 
   // --- AUTH LOGIC ---
