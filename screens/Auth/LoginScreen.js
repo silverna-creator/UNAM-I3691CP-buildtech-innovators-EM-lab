@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styles } from '../../src/styles/globalStyles';
+import Logo from '../../src/styles/Logo';  
 
 const LoginScreen = ({ 
   email, setEmail, 
@@ -12,6 +13,9 @@ const LoginScreen = ({
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
         <SafeAreaView style={styles.container}>
+
+          < Logo />
+
           <Text style={styles.title}>EM-Lab</Text>
           <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
 
