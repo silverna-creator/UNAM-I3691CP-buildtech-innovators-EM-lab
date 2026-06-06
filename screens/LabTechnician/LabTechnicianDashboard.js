@@ -15,11 +15,14 @@ const LabTechnicianDashboard = ({
   const unreadCount = notifications ? notifications.length : 0;
 
   const handleBellPress = () => {
-    setShowNotifications(!showNotifications);
-    if (!showNotifications && unreadCount > 0) {
-      onOpenNotifications(); // marks as read and clears
-    }
-  };
+  const isOpening = !showNotifications;
+  setShowNotifications(isOpening);
+
+  // Only mark as read when CLOSING the dropdown, not opening
+  if (!isOpening && unreadCount > 0) {
+    onOpenNotifications();
+  }
+};
   return (
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
