@@ -1,4 +1,4 @@
-//StaffDirectoryScreen.js
+// screens/StaffDirectoryScreen.js
 
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
