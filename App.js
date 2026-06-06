@@ -100,6 +100,8 @@ const [selectedOre, setSelectedOre] = useState('');
   const [currentTempInput, setCurrentTempInput] = useState('');
   const [cycleDurationInput, setCycleDurationInput] = useState('');
 
+  const [notifications, setNotifications] = useState([]);
+
 
  useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -221,6 +223,17 @@ useEffect(() => {
 
   return () => unsubscribe(); // Cleanup on logout or unmount
 }, [user, role, screen]);
+
+useEffect(() => {
+  if (!user || !role || !companyName) return;
+
+  fetchNotifications(); // fetch immediately on login
+  const interval = setInterval(() => {
+    fetchNotifications();
+  }, 15000);
+
+  return () => clearInterval(interval);
+}, [user, role, companyName]);
 
 
 const userRole = role ? role.toLowerCase().trim() : '';
@@ -849,6 +862,10 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
 const updateFurnaceTelemetry = async () => {
   if (!currentTempInput.trim()) return;
 
+  console.log("🔍 selectedMeltSample.sampleId:", selectedMeltSample.sampleId);
+console.log("🔍 selectedMeltSample.displayId:", selectedMeltSample.displayId);
+console.log("🔍 selectedMeltSample.id:", selectedMeltSample.id);
+
   try {
     const docRef = doc(db, "mineral_samples", selectedMeltSample.id);
 
@@ -1055,6 +1072,65 @@ const handleSaveSettings = async () => {
     console.error("Error saving settings:", error);
     const msg = `Failed to save settings: ${error.message}`;
     Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+  }
+};
+
+const writeNotification = async (recipientRole, message, type, relatedSampleId = '') => {
+  try {
+    const activeCompany = normalizeCompany(companyName);
+    if (!activeCompany) return;
+
+    await addDoc(collection(db, "notifications"), {
+      company: activeCompany,
+      recipientRole: recipientRole,
+      message: message,
+      type: type,
+      sampleId: relatedSampleId,
+      read: false,
+      createdAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error writing notification:", error);
+  }
+};
+
+const fetchNotifications = async () => {
+  try {
+    const activeCompany = normalizeCompany(companyName);
+    const activeRole = role ? role.toLowerCase().trim() : '';
+    if (!activeCompany || !activeRole) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      where("company", "==", activeCompany),
+      where("recipientRole", "==", activeRole),
+      where("read", "==", false)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const notifList = [];
+    querySnapshot.forEach((docSnap) => {
+      notifList.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    setNotifications(notifList);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+  }
+};
+
+const markNotificationsRead = async () => {
+  try {
+    // Mark all current notifications as read in Firestore
+    const updatePromises = notifications.map((notif) =>
+      updateDoc(doc(db, "notifications", notif.id), { read: true })
+    );
+    await Promise.all(updatePromises);
+
+    // Auto-dismiss — clear from local state immediately
+    setNotifications([]);
+  } catch (error) {
+    console.error("Error marking notifications as read:", error);
   }
 };
 
