@@ -16,7 +16,6 @@ const LoginScreen = ({
 
           < Logo />
 
-          <Text style={styles.title}>EM-Lab</Text>
           <Text style={styles.subtitle}>Electronics & Metallurgy Lab</Text>
 
           <TextInput 
