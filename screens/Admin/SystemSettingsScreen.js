@@ -6,7 +6,7 @@ import { styles } from '../../src/styles/globalStyles';
 const SystemSettingsScreen = ({ maxFurnaceTemp, setMaxFurnaceTemp, isLabActive, setIsLabActive, onSave, onCancel }) => {
   return (
     <SafeAreaProvider>
-      <View style={styles.container}>
+      <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
         <SafeAreaView style={{ flex: 1 }}>
           <Text style={styles.title}>System Settings</Text>
           <Text style={styles.subtitle}>Configure Laboratory Parameters</Text>

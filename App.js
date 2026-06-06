@@ -4,7 +4,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db, firebaseConfig } from './src/config/firebaseConfig'
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, updatePassword, deleteUser, signOut, getAuth } from 'firebase/auth'
 import { initializeApp } from 'firebase/app'
-import { getDoc, doc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, getDocs, arrayUnion, serverTimestamp } from 'firebase/firestore'
+import { getDoc, doc, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, getDocs, arrayUnion, serverTimestamp, onSnapshot } from 'firebase/firestore'
+import LaboratoryLockdownScreen from './src/components/LaboratoryLockdownScreen';
 import LoginScreen from './screens/Auth/LoginScreen';
 import CodeCrashBoundary from './src/components/CodeCrashBoundary';
 import LogSampleScreen from './screens/LabTechnician/LogSampleScreen';
@@ -99,6 +100,8 @@ const [selectedOre, setSelectedOre] = useState('');
   const [currentTempInput, setCurrentTempInput] = useState('');
   const [cycleDurationInput, setCycleDurationInput] = useState('');
 
+  const [notifications, setNotifications] = useState([]);
+
 
  useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, async (authenticatedUser) => {
@@ -188,6 +191,50 @@ const [selectedOre, setSelectedOre] = useState('');
   });
   return unsubscribe;
 }, []);
+
+useEffect(() => {
+  // Only run the listener when a non-admin user is logged in
+  if (!user) return;
+
+  const isAdmin = role ? isAdminRole(role) : false;
+  if (isAdmin) return; // Admins are never locked out
+
+  const docRef = doc(db, "system_status", "lab_configuration");
+
+  const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const labActive = data.isLabActive === true || data.isLabActive === "true";
+      setIsLabActive(labActive);
+
+      // 🔒 If lab just went inactive and user is inside the app — lock them out immediately
+      if (!labActive && screen !== 'lockdown_block' && screen !== 'login') {
+        console.log("🔒 Lab lockdown detected — redirecting non-admin user.");
+        setScreen('lockdown_block');
+      }
+
+      // 🟢 If lab came back online and user is on lockdown screen — release them
+      if (labActive && screen === 'lockdown_block') {
+        console.log("🟢 Lab reactivated — releasing lockdown.");
+        setScreen('login'); // Send back to login to re-authenticate cleanly
+      }
+    }
+  });
+
+  return () => unsubscribe(); // Cleanup on logout or unmount
+}, [user, role, screen]);
+
+useEffect(() => {
+  if (!user || !role || !companyName) return;
+
+  fetchNotifications(); // fetch immediately on login
+  const interval = setInterval(() => {
+    fetchNotifications();
+  }, 15000);
+
+  return () => clearInterval(interval);
+}, [user, role, companyName]);
+
 
 const userRole = role ? role.toLowerCase().trim() : '';
 
@@ -612,8 +659,15 @@ const fetchStaffDirectory = async () => {
 
       console.log("Writing customized document path directly...", uniqueCompositeId);
 
-      // DIRECT SECURE WRITE TO FIRESTORE
       const customDocRef = doc(db, "mineral_samples", uniqueCompositeId);
+      const existingDoc = await getDoc(customDocRef);
+
+      if (existingDoc.exists()) {
+        const msg = `Sample ID "${cleanSampleId}" already exists in the system. Please use a unique batch code.`;
+        Platform.OS === 'web' ? alert(msg) : Alert.alert("Duplicate ID", msg);
+        return;
+      }
+
       await setDoc(customDocRef, sampleData);
       
       console.log("Sample stored successfully with Unique ID:", uniqueCompositeId);
@@ -631,11 +685,18 @@ const fetchStaffDirectory = async () => {
       
       // Dynamic refresh on the dashboard component
       fetchMineralSamples(cleanCompany);
+       await writeNotification(
+  'metallurgist',
+  `New sample ${cleanSampleId} has been logged by ${finalLoggedBy} and is ready for analysis.`,
+  'new_sample',
+  cleanSampleId
+);
     } catch (error) {
       console.error("Detailed Error Logging Catch:", JSON.stringify(error, null, 2) || error.message);
       const standardError = `Failed to log sample: ${error?.message || 'Data integrity fault'}`;
       Platform.OS === 'web' ? alert(standardError) : Alert.alert("Error", standardError);
     }
+
 };
   
 const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) => {
@@ -808,6 +869,10 @@ const fetchMineralSamples = async (passedCompany, shouldSwitchScreen = false) =>
 const updateFurnaceTelemetry = async () => {
   if (!currentTempInput.trim()) return;
 
+  console.log("🔍 selectedMeltSample.sampleId:", selectedMeltSample.sampleId);
+console.log("🔍 selectedMeltSample.displayId:", selectedMeltSample.displayId);
+console.log("🔍 selectedMeltSample.id:", selectedMeltSample.id);
+
   try {
     const docRef = doc(db, "mineral_samples", selectedMeltSample.id);
 
@@ -827,7 +892,7 @@ const updateFurnaceTelemetry = async () => {
 
     // 🔥 Write melt log to furnace_operations (architecture requirement)
     const meltData = {
-      meltId: selectedMeltSample.displayId || selectedMeltSample.sampleId,
+      meltId: selectedMeltSample.sampleId || selectedMeltSample.displayId,
       temperature: parseFloat(currentTempInput),
       durationMinutes: cycleDurationInput ? parseInt(cycleDurationInput) : 0,
       company: normalizeCompany(companyName),
@@ -845,6 +910,13 @@ const updateFurnaceTelemetry = async () => {
     setCycleDurationInput('');
 
     alert("🔥 Furnace telemetry log updated successfully!");
+
+    await writeNotification(
+  'admin',
+  `Furnace telemetry update: ${selectedMeltSample.sampleId || selectedMeltSample.displayId} recorded at ${currentTempInput}°C by ${fullName}.`,
+  'melt_telemetry',
+  selectedMeltSample.sampleId || selectedMeltSample.displayId
+);
 
     // ⏱️ Auto-navigate back to queue after 3 seconds
     setTimeout(() => {
@@ -965,6 +1037,28 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
       const errorMsg = "Write error tracking failed.";
       Platform.OS === 'web' ? alert(errorMsg) : Alert.alert("Error", errorMsg);
     }
+
+    if (actionType === 'Approved') {
+  await writeNotification(
+    'lab technician',
+    `Sample ${sampleIdToUpdate} has been certified with purity grade ${gradePurity}.`,
+    'sample_approved',
+    sampleIdToUpdate
+  );
+  await writeNotification(
+    'furnace operator',
+    `Sample ${sampleIdToUpdate} has been approved and is ready for melt cycle.`,
+    'sample_approved',
+    sampleIdToUpdate
+  );
+} else {
+  await writeNotification(
+    'lab technician',
+    `Sample ${sampleIdToUpdate} has been declined. Reason: ${rejectionReason}.`,
+    'sample_declined',
+    sampleIdToUpdate
+  );
+} 
   };
   
   const fetchAssayHistory = async () => {
@@ -998,6 +1092,84 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
   }
 };
 
+const handleSaveSettings = async () => {
+  try {
+    const docRef = doc(db, "system_status", "lab_configuration");
+    await updateDoc(docRef, {
+      maxTemperatureLimit: parseFloat(maxFurnaceTemp),
+      isLabActive: isLabActive,
+      lastUpdatedBy: fullName,
+      updatedAt: new Date().toISOString()
+    });
+    const msg = "System settings saved successfully!";
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Success", msg);
+    setScreen('dashboard');
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    const msg = `Failed to save settings: ${error.message}`;
+    Platform.OS === 'web' ? alert(msg) : Alert.alert("Error", msg);
+  }
+};
+
+const writeNotification = async (recipientRole, message, type, relatedSampleId = '') => {
+  try {
+    const activeCompany = normalizeCompany(companyName);
+    if (!activeCompany) return;
+
+    await addDoc(collection(db, "notifications"), {
+      company: activeCompany,
+      recipientRole: recipientRole,
+      message: message,
+      type: type,
+      sampleId: relatedSampleId,
+      read: false,
+      createdAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error writing notification:", error);
+  }
+};
+
+const fetchNotifications = async () => {
+  try {
+    const activeCompany = normalizeCompany(companyName);
+    const activeRole = role ? role.toLowerCase().trim() : '';
+    if (!activeCompany || !activeRole) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      where("company", "==", activeCompany),
+      where("recipientRole", "==", activeRole),
+      where("read", "==", false)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const notifList = [];
+    querySnapshot.forEach((docSnap) => {
+      notifList.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    setNotifications(notifList);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+  }
+};
+
+const markNotificationsRead = async () => {
+  try {
+    // Mark all current notifications as read in Firestore
+    const updatePromises = notifications.map((notif) =>
+      updateDoc(doc(db, "notifications", notif.id), { read: true })
+    );
+    await Promise.all(updatePromises);
+
+    // Auto-dismiss — clear from local state immediately
+    setNotifications([]);
+  } catch (error) {
+    console.error("Error marking notifications as read:", error);
+  }
+};
+
   return (
   <CodeCrashBoundary>
     <View style={styles.container}>
@@ -1009,6 +1181,13 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
           <Text style={styles.subtitle}>Securing Session...</Text>
         </View>
       )}
+
+      {screen === 'lockdown_block' && (
+  <LaboratoryLockdownScreen
+    onCheckStatus={fetchSystemSettingsStatus}
+    onReturnToLogin={handleLockdownExit}
+  />
+)}
 
   {screen === 'signup' && (
   <SignupScreen 
@@ -1156,6 +1335,8 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
     setScreen={setScreen}
     handleLogout={handleLogout}
     fetchStaffDirectory={fetchStaffDirectory}
+    notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
   
@@ -1165,6 +1346,8 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
     setScreen={setScreen}
     handleLogout={handleLogout}
     fetchMineralSamples={fetchMineralSamples}
+     notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
 
@@ -1183,6 +1366,8 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
       setScreen(nextScreen);
     }}
     onLogout={handleLogout}
+    notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
 
@@ -1193,8 +1378,11 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
     handleLogout={handleLogout}
     fetchSamplesForAnalysis={fetchSamplesForAnalysis}
     fetchAssayHistory={fetchAssayHistory}
+    notifications={notifications}
+    onOpenNotifications={markNotificationsRead}
   />
 )}
+
 
   {screen === 'profile' && (
   <ProfileScreen 
