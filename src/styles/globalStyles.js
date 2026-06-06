@@ -15,8 +15,8 @@ export const styles = StyleSheet.create({
   input: { backgroundColor: '#2A2A4A', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000', borderWidth: 2.5, borderColor: '#0047AB'},
   
   // Buttons
-  loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10 },
-  button: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
+  loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10, borderWidth: 2.5, borderColor: '#3498db' },
+  button: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20, borderWidth: 2.5, borderColor: '#3498db' },
   
   // Role/Dashboard Elements
   roleBox: { backgroundColor: '#2c3e50', padding: 20, borderRadius: 15, marginVertical: 20, borderWidth: 1, borderColor: '#3498db' },
@@ -41,6 +41,6 @@ picker: { backgroundColor: '#232931', color: '#fff', marginBottom: 15 },
   sampleCardBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   // src/styles/globalStyles.js
 
-cancelButton: { backgroundColor: '#e74c3c', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 25, marginTop: 10, alignItems: 'center', },
-cancelButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+cancelButton: { backgroundColor: '#2A2A4A', padding: 15, borderRadius: 15, marginTop: 10, alignItems: 'center', borderWidth: 2, borderColor: '#3498db' },
+cancelButtonText: { color: '#e74c3c', fontSize: 16, fontWeight: '600' },
 });
