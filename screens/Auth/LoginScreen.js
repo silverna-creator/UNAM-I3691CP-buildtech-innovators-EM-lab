@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styles } from '../../src/styles/globalStyles';
-import Logo from '../../src/styles/Logo';  
+import Logo from '../../src/styles/Logo';
+
 
 const LoginScreen = ({ 
   email, setEmail, 
