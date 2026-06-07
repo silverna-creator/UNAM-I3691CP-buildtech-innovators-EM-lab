@@ -12,11 +12,11 @@ export const styles = StyleSheet.create({
   loginButtonText: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
   
   // Inputs
-  input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000' },
+  input: { backgroundColor: '#2A2A4A', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000', borderWidth: 2.5, borderColor: '#0047AB'},
   
   // Buttons
-  loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10 },
-  button: { backgroundColor: '#2c5f8a', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
+  loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10, borderWidth: 2.5, borderColor: '#3498db' },
+  button: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20, borderWidth: 2.5, borderColor: '#3498db' },
   
   // Role/Dashboard Elements
   roleBox: { backgroundColor: '#2c3e50', padding: 20, borderRadius: 15, marginVertical: 20, borderWidth: 1, borderColor: '#3498db' },
@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
   
   // Utils
   switchText: { color: '#c8d4e6', textAlign: 'center', marginTop: 20 },
-  signUpText: { color: '#3498db', fontWeight: 'bold' },
+  signUpText: { color: '#00BFFF', fontWeight: 'bold' },
 
   // Add these to globalStyles.js
 label: { color: '#c8d4e6', marginBottom: 5, fontSize: 13, marginLeft: '5%' },
@@ -39,4 +39,8 @@ picker: { backgroundColor: '#232931', color: '#fff', marginBottom: 15 },
   sampleCardValue: { color: '#ecf0f1', fontSize: 13, fontWeight: '500' },
   sampleCardBadge: { alignSelf: 'flex-start', backgroundColor: '#2c5f8a', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 8 },
   sampleCardBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  // src/styles/globalStyles.js
+
+cancelButton: { backgroundColor: '#2A2A4A', padding: 15, borderRadius: 15, marginTop: 10, alignItems: 'center', borderWidth: 2, borderColor: '#3498db' },
+cancelButtonText: { color: '#e74c3c', fontSize: 16, fontWeight: '600' },
 });

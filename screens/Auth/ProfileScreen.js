@@ -32,8 +32,8 @@ const ProfileScreen = ({
               <TouchableOpacity style={styles.loginButton} onPress={() => handleInternalPasswordChange(currentPassword, newPassword)}>
                 <Text style={styles.loginButtonText}>Save New Password</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setIsChangingPassword(false)}>
-                <Text style={[styles.switchText, { textDecorationLine: 'none', color: '#e74c3c' }]}>Cancel</Text>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setIsChangingPassword(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           ) : (
