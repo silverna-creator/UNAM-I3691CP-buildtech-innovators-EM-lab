@@ -25,6 +25,7 @@ import FurnaceOperatorDashboard from './screens/Furnace/FurnaceOperatorDashboard
 import MetallurgistDashboard from './screens/Metallurgist/MetallurgistDashboard';
 import ProfileScreen from './screens/Auth/ProfileScreen';
 import { styles } from './src/styles/globalStyles';
+import Logo from './src/styles/Logo';
 
 const normalizeCompany = (name) => {
   if (!name || typeof name !== 'string') return '';
@@ -1003,13 +1004,23 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
     <View style={styles.container}>
       
       {/* 1. Loading State */}
-      {(!isReady || screen === 'loading') && (
-        <View style={styles.container}>
-          <Text style={styles.title}>EM-Lab</Text>
-          <Text style={styles.subtitle}>Securing Session...</Text>
-        </View>
-      )}
 
+{(!isReady || screen === 'loading') && (
+  <View style={{ 
+    flex: 1, 
+    backgroundColor: '#1A1A2E', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  }}>
+    <Logo />
+    <Text style={styles.subtitle}>Securing Session...</Text>
+  </View>
+)}
   {screen === 'signup' && (
   <SignupScreen 
     isLoggedIn={!!auth.currentUser}
