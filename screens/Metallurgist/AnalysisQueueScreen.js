@@ -1,3 +1,5 @@
+// screens/Metallurgist/AnalysisQueueScreen.js
+
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -24,22 +26,19 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
               <Text style={{ color: '#aaa', fontSize: 13 }}>
                 Moisture Content: {selectedSample.moistureTestResult != null ? `${selectedSample.moistureTestResult}%` : 'Not tested'}
               </Text>
-              <Text style={{ color: '#aaa', fontSize: 13, marginBottom: 10 }}>
+              <Text style={{ color: '#aaa', fontSize: 13 }}>
                 Flotation Prep: {selectedSample.flotationPrepResult != null ? `${selectedSample.flotationPrepResult} g/cm³` : 'Not tested'}
               </Text>
-              {sample.sampleSource ? (
-                    <View style={styles.sampleCardRow}>
-                      <Text style={styles.sampleCardLabel}>Received From</Text>
-                      <Text style={styles.sampleCardValue}>{sample.sampleSource}</Text>
-                    </View>
-                  ) : null}
-
-                  {sample.receivedAt ? (
-                    <View style={styles.sampleCardRow}>
-                      <Text style={styles.sampleCardLabel}>Date Received</Text>
-                      <Text style={styles.sampleCardValue}>{sample.receivedAt}</Text>
-                    </View>
-                  ) : null}
+              {selectedSample.sampleSource ? (
+                <Text style={{ color: '#aaa', fontSize: 13 }}>
+                  Received From: {selectedSample.sampleSource}
+                </Text>
+              ) : null}
+              {selectedSample.receivedAt ? (
+                <Text style={{ color: '#aaa', fontSize: 13, marginBottom: 10 }}>
+                  Date Received: {selectedSample.receivedAt}
+                </Text>
+              ) : null}
 
               <TextInput style={styles.input} placeholder="Enter Purity Grade" value={gradePurity} onChangeText={setGradePurity} />
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2ecc71' }]} onPress={() => submitAssayResults(selectedSample.id, 'Approved')}>
@@ -112,10 +111,11 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
 
                 </View>
               ))}
-
             </ScrollView>
           )}
-          <TouchableOpacity style={styles.button} onPress={onBack}><Text style={styles.buttonText}>Return to Dashboard</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={onBack}>
+            <Text style={styles.buttonText}>Return to Dashboard</Text>
+          </TouchableOpacity>
         </SafeAreaView>
       </View>
     </SafeAreaProvider>

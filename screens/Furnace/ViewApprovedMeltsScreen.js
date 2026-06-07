@@ -55,6 +55,20 @@ const FurnaceQueueScreen = ({ furnaceLogs, onSelectSample, onBack }) => {
                     </Text>
                   </View>
 
+                  {sample.sampleSource ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Received From</Text>
+                      <Text style={styles.sampleCardValue}>{sample.sampleSource}</Text>
+                    </View>
+                  ) : null}
+
+                  {sample.receivedAt ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Date Received</Text>
+                      <Text style={styles.sampleCardValue}>{sample.receivedAt}</Text>
+                    </View>
+                  ) : null}
+
                   <TouchableOpacity
                     style={[styles.roleButton, { backgroundColor: '#e67e22', marginTop: 12 }]}
                     onPress={() => onSelectSample(sample)}
