@@ -71,6 +71,8 @@ export default function App() {
 const [samplesList, setSamplesList] = useState([]); // 👈 Keep this so your list views don't break!
 const [sampleId, setSampleId] = useState('');
 const [initialWeight, setInitialWeight] = useState('');
+const [sampleSource, setSampleSource] = useState('');
+const [receivedAt, setReceivedAt] = useState('');
 
 // 🔬 NEW SELECTION STATE TRACKERS 
 const [selectedGroup, setSelectedGroup] = useState('SULFIDES');
@@ -651,10 +653,9 @@ const fetchStaffDirectory = async () => {
         loggedBy: finalLoggedBy,    
         createdAt: finalTimestamp,
         status: "Pending Analysis",
-        
-        // 💾 SAVING BOTH NEW FEATURE CARD VALUES SEPARATELY
         moistureTestResult: finalMoisture, 
-        flotationPrepResult: finalFlotation
+        flotationPrepResult: finalFlotation, sampleSource: sampleSource ? sampleSource.trim() : '',
+  receivedAt: receivedAt ? receivedAt.trim() : '',
       };
 
       console.log("Writing customized document path directly...", uniqueCompositeId);
@@ -680,8 +681,10 @@ const fetchStaffDirectory = async () => {
       setInitialWeight('');
       setSelectedGroup('SULFIDES'); 
       setSelectedOre('');
-      setMoistureValue('');  // Clears moisture card
-      setFlotationValue(''); // Clears flotation card
+      setMoistureValue(''); 
+      setFlotationValue(''); 
+      setSampleSource('');
+setReceivedAt('');
       
       // Dynamic refresh on the dashboard component
       fetchMineralSamples(cleanCompany);
@@ -1231,6 +1234,8 @@ const markNotificationsRead = async () => {
     selectedOre={selectedOre} setSelectedOre={setSelectedOre}
     moistureValue={moistureValue} setMoistureValue={setMoistureValue}
     flotationValue={flotationValue} setFlotationValue={setFlotationValue}
+    sampleSource={sampleSource} setSampleSource={setSampleSource}
+    receivedAt={receivedAt} setReceivedAt={setReceivedAt}
     onLogSample={logMineralSample} 
     onBack={() => setScreen('lab_technician_dashboard')}
   />
