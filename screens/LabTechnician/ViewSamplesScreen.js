@@ -53,7 +53,7 @@ const ViewSampleScreen = ({ loggedSamples, onBack, onRefresh }) => {
                   <View key={sample.id || sample.sampleId} style={[styles.sampleCard, { borderLeftColor: borderColor }]}>
 
                     <Text style={styles.sampleCardHeader}>
-                      🧪 {sample.displayId || sample.sampleId || 'Unknown Lot'}
+                      🧪 {sample.sampleId || sample.displayId || 'Unknown Lot'}
                     </Text>
 
                     <View style={[styles.sampleCardBadge, { backgroundColor: badgeColor, marginBottom: 10 }]}>

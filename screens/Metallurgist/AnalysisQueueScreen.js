@@ -27,6 +27,19 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
               <Text style={{ color: '#aaa', fontSize: 13, marginBottom: 10 }}>
                 Flotation Prep: {selectedSample.flotationPrepResult != null ? `${selectedSample.flotationPrepResult} g/cm³` : 'Not tested'}
               </Text>
+              {sample.sampleSource ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Received From</Text>
+                      <Text style={styles.sampleCardValue}>{sample.sampleSource}</Text>
+                    </View>
+                  ) : null}
+
+                  {sample.receivedAt ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Date Received</Text>
+                      <Text style={styles.sampleCardValue}>{sample.receivedAt}</Text>
+                    </View>
+                  ) : null}
 
               <TextInput style={styles.input} placeholder="Enter Purity Grade" value={gradePurity} onChangeText={setGradePurity} />
               <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2ecc71' }]} onPress={() => submitAssayResults(selectedSample.id, 'Approved')}>
@@ -74,6 +87,20 @@ const AnalysisQueueScreen = ({ selectedSample, setSelectedSample, gradePurity, s
                       {sample.flotationPrepResult != null ? `${sample.flotationPrepResult} g/cm³` : 'Not tested'}
                     </Text>
                   </View>
+
+                  {sample.sampleSource ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Received From</Text>
+                      <Text style={styles.sampleCardValue}>{sample.sampleSource}</Text>
+                    </View>
+                  ) : null}
+
+                  {sample.receivedAt ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Date Received</Text>
+                      <Text style={styles.sampleCardValue}>{sample.receivedAt}</Text>
+                    </View>
+                  ) : null}
 
                   <View style={styles.sampleCardBadge}>
                     <Text style={styles.sampleCardBadgeText}>⏳ Pending Analysis</Text>
