@@ -60,6 +60,20 @@ const AssayHistoryScreen = ({ assayHistory, onBack }) => {
                   </Text>
                 </View>
 
+                {item.sampleSource ? (
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Received From</Text>
+                    <Text style={styles.sampleCardValue}>{item.sampleSource}</Text>
+                  </View>
+                ) : null}
+
+                {item.receivedAt ? (
+                  <View style={styles.sampleCardRow}>
+                    <Text style={styles.sampleCardLabel}>Date Received</Text>
+                    <Text style={styles.sampleCardValue}>{item.receivedAt}</Text>
+                  </View>
+                ) : null}
+
                 {/* ── ASSAY OUTCOME ── */}
                 {item.status === 'Approved' ? (
                   <View style={styles.sampleCardRow}>

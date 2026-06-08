@@ -1,3 +1,5 @@
+// screens/LabTechnician/ViewSamplesScreen.js
+
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,13 +8,13 @@ import { styles } from '../../src/styles/globalStyles';
 const ViewSampleScreen = ({ loggedSamples, onBack, onRefresh }) => {
 
   useEffect(() => {
-    if (typeof onRefresh === 'function') onRefresh(); // fetch immediately on mount
+    if (typeof onRefresh === 'function') onRefresh();
     const interval = setInterval(() => {
       if (typeof onRefresh === 'function') onRefresh();
     }, 10000);
-    return () => clearInterval(interval); // cleanup on unmount
+    return () => clearInterval(interval);
   }, []);
-  
+
   return (
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
@@ -29,55 +31,102 @@ const ViewSampleScreen = ({ loggedSamples, onBack, onRefresh }) => {
               </View>
             ) : (
               loggedSamples.map((sample) => {
-                let statusColor = '#e67e22';
-                let statusLabel = '⚠️ PENDING ANALYSIS';
-                
+                let borderColor = '#e67e22';
+                let badgeColor = '#7d4e00';
+                let badgeText = '⚠️ Pending Analysis';
+
                 if (sample.status === 'Approved') {
-                  statusColor = '#2ecc71';
-                  statusLabel = '🟢 ASSAY CERTIFIED';
+                  borderColor = '#2ecc71';
+                  badgeColor = '#1e8449';
+                  badgeText = '✅ Assay Certified';
                 } else if (sample.status === 'Declined') {
-                  statusColor = '#e74c3c';
-                  statusLabel = '🔴 BATCH DECLINED';
+                  borderColor = '#e74c3c';
+                  badgeColor = '#922b21';
+                  badgeText = '❌ Batch Declined';
+                } else if (sample.status === 'In Melt Cycle') {
+                  borderColor = '#e67e22';
+                  badgeColor = '#784212';
+                  badgeText = '🔥 In Melt Cycle';
                 }
 
                 return (
-                  <View key={sample.id || sample.sampleId} style={[styles.roleBox, { borderColor: statusColor, borderWidth: 1, marginBottom: 10, padding: 15 }]}>
-                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>
-                      Batch ID: {sample.sampleId || sample.displayId || "Unknown Lot"}
+                  <View key={sample.id || sample.sampleId} style={[styles.sampleCard, { borderLeftColor: borderColor }]}>
+
+                    <Text style={styles.sampleCardHeader}>
+                      🧪 {sample.sampleId || sample.displayId || 'Unknown Lot'}
                     </Text>
-                    <Text style={{ color: '#c8d4e6', fontSize: 14, marginTop: 4 }}>
-                      Ore Matrix: {sample.oreType} | ⚖️ Initial Mass: {sample.initialWeight} kg
-                    </Text>
+
+                    <View style={[styles.sampleCardBadge, { backgroundColor: badgeColor, marginBottom: 10 }]}>
+                      <Text style={styles.sampleCardBadgeText}>{badgeText}</Text>
+                    </View>
+
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Ore Type</Text>
+                      <Text style={styles.sampleCardValue}>{sample.oreType || 'N/A'}</Text>
+                    </View>
+
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Initial Weight</Text>
+                      <Text style={styles.sampleCardValue}>
+                        {sample.initialWeight != null ? `${sample.initialWeight} kg` : 'N/A'}
+                      </Text>
+                    </View>
 
                     {sample.moistureTestResult != null && (
-                      <Text style={{ color: '#fff', fontSize: 13, marginTop: 3 }}>
-                        💧 Moisture Content: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.moistureTestResult}%</Text>
-                      </Text>
-                    )}
-                    
-                    {sample.flotationPrepResult != null && (
-                      <Text style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
-                        🧪 Flotation Target: <Text style={{ color: '#f1c40f', fontWeight: 'bold' }}>{sample.flotationPrepResult} g/cm³</Text>
-                      </Text>
+                      <View style={styles.sampleCardRow}>
+                        <Text style={styles.sampleCardLabel}>Moisture Content</Text>
+                        <Text style={[styles.sampleCardValue, { color: '#f1c40f' }]}>
+                          {sample.moistureTestResult}%
+                        </Text>
+                      </View>
                     )}
 
-                    <Text style={{ color: statusColor, fontWeight: 'bold', marginTop: 6, fontSize: 13 }}>{statusLabel}</Text>
+                    {sample.flotationPrepResult != null && (
+                      <View style={styles.sampleCardRow}>
+                        <Text style={styles.sampleCardLabel}>Flotation Prep</Text>
+                        <Text style={[styles.sampleCardValue, { color: '#f1c40f' }]}>
+                          {sample.flotationPrepResult} g/cm³
+                        </Text>
+                      </View>
+                    )}
+
+                    {sample.sampleSource ? (
+                      <View style={styles.sampleCardRow}>
+                        <Text style={styles.sampleCardLabel}>Received From</Text>
+                        <Text style={styles.sampleCardValue}>{sample.sampleSource}</Text>
+                      </View>
+                    ) : null}
+
+                    {sample.receivedAt ? (
+                      <View style={styles.sampleCardRow}>
+                        <Text style={styles.sampleCardLabel}>Date Received</Text>
+                        <Text style={styles.sampleCardValue}>{sample.receivedAt}</Text>
+                      </View>
+                    ) : null}
 
                     {sample.status === 'Approved' && (
-                      <Text style={{ color: '#fff', fontSize: 13, marginTop: 4, fontWeight: '500' }}>
-                        💎 Certified Purity: {sample.purityGrade || sample.purity}
-                      </Text>
-                    )}
-                    
-                    {sample.status === 'Declined' && (
-                      <Text style={{ color: '#ff8a80', fontSize: 13, marginTop: 4, fontStyle: 'italic' }}>
-                        ❌ Rejection Reason: {sample.rejectionReason}
-                      </Text>
+                      <View style={styles.sampleCardRow}>
+                        <Text style={styles.sampleCardLabel}>Purity Grade</Text>
+                        <Text style={[styles.sampleCardValue, { color: '#2ecc71', fontWeight: 'bold' }]}>
+                          {sample.purityGrade || 'N/A'}
+                        </Text>
+                      </View>
                     )}
 
-                    <Text style={{ color: '#7f8c8d', fontSize: 11, marginTop: 6, borderTopWidth: 0.5, borderTopColor: '#333', paddingTop: 6 }}>
-                      Logged By: {sample.loggedBy || "Lab Technician"}
-                    </Text>
+                    {sample.status === 'Declined' && (
+                      <View style={styles.sampleCardRow}>
+                        <Text style={styles.sampleCardLabel}>Rejection Reason</Text>
+                        <Text style={[styles.sampleCardValue, { color: '#e74c3c' }]}>
+                          {sample.rejectionReason || 'N/A'}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={[styles.sampleCardRow, { marginTop: 8, borderTopWidth: 0.5, borderTopColor: '#333', paddingTop: 6 }]}>
+                      <Text style={styles.sampleCardLabel}>Logged by</Text>
+                      <Text style={styles.sampleCardValue}>{sample.loggedBy || 'Lab Technician'}</Text>
+                    </View>
+
                   </View>
                 );
               })
