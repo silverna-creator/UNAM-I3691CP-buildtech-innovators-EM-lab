@@ -7,7 +7,6 @@ import { styles } from './globalStyles';
 const HoverButton = ({ type = 'button', onPress, label, customStyle, customTextStyle }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  // Map button type to its style and hover color
   const buttonConfig = {
     login: {
       style: styles.loginButton,
@@ -28,6 +27,27 @@ const HoverButton = ({ type = 'button', onPress, label, customStyle, customTextS
       style: styles.cancelButton,
       textStyle: styles.cancelButtonText,
       hoverColor: '#1A1A3A',
+    },
+    // ← NEW BUTTON TYPES FOR LAB TECHNICIAN DASHBOARD
+    labAction: {
+      style: styles.roleButton,
+      textStyle: styles.buttonText,
+      hoverColor: '#1a252f',
+    },
+    labSecondary: {
+      style: [styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }],
+      textStyle: styles.buttonText,
+      hoverColor: '#1a2b38',
+    },
+    profile: {
+      style: styles.roleButton,
+      textStyle: styles.buttonText,
+      hoverColor: '#2c3e50',
+    },
+    logout: {
+      style: [styles.roleButton, { backgroundColor: '#c0392b', marginTop: 10 }],
+      textStyle: styles.buttonText,
+      hoverColor: '#922b21',
     },
   };
 
