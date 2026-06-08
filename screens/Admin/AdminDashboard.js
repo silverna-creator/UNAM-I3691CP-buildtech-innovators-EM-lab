@@ -1,8 +1,10 @@
+// screens/Admin/AdminDashboard.js
+
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-// Assuming styles are in src/styles/globalStyles.js
-import { styles } from '../../src/styles/globalStyles'; 
+import { View, Text, ScrollView } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { styles } from '../../src/styles/globalStyles';
+import HoverButton from '../../src/styles/HoverButton';
 
 const AdminDashboard = ({ 
   companyName, 
@@ -39,10 +41,14 @@ const AdminDashboard = ({
                   return (
                     <View key={melt.id} style={{ 
                       backgroundColor: isOverheated ? '#7b1113' : '#232931', 
-                      padding: 10, borderRadius: 6, marginTop: 5, borderColor: isOverheated ? '#e74c3c' : 'transparent', borderWidth: 1 
+                      padding: 10, borderRadius: 6, marginTop: 5, 
+                      borderColor: isOverheated ? '#e74c3c' : 'transparent', 
+                      borderWidth: 1 
                     }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>ID: {melt.sampleId || "Active Melt"}</Text>
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>
+                          ID: {melt.sampleId || "Active Melt"}
+                        </Text>
                         <Text style={{ color: isOverheated ? '#ff8d8f' : '#2ecc71', fontWeight: 'bold', fontSize: 13 }}>
                           {currentTemp}°C / {maxAllowed}°C Limit
                         </Text>
@@ -57,30 +63,44 @@ const AdminDashboard = ({
             <View style={styles.roleBox}>
               <Text style={styles.roleTitle}>Admin Controls</Text>
               
-              <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('signup')}>
-                <Text style={styles.buttonText}>Register New Staff</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} onPress={fetchStaffDirectory}>
-                <Text style={styles.buttonText}>📋 View Active Staff Directory</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#e67e22', marginTop: 10 }]} onPress={() => setScreen('system_settings')}>
-                <Text style={styles.buttonText}>⚙️ Manage System Settings</Text>
-              </TouchableOpacity>
+              <HoverButton
+                type="role"
+                onPress={() => setScreen('signup')}
+                label="Register New Staff"
+              />
 
-              <TouchableOpacity style={[styles.roleButton, { backgroundColor: '#2E2E4A', marginTop: 10 }]} onPress={() => setScreen('support_center')}>
-                <Text style={styles.buttonText}>🎫 Contact Platform Support</Text>
-              </TouchableOpacity>
+              <HoverButton
+                type="labSecondary"
+                onPress={fetchStaffDirectory}
+                label="📋 View Active Staff Directory"
+              />
+
+              <HoverButton
+                type="settings"
+                onPress={() => setScreen('system_settings')}
+                label="⚙️ Manage System Settings"
+              />
+
+              <HoverButton
+                type="role"
+                onPress={() => setScreen('support_center')}
+                label="🎫 Contact Platform Support"
+                customStyle={{ backgroundColor: '#2E2E4A', marginTop: 10 }}
+              />
             </View>
 
-            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
-              <Text style={styles.buttonText}>View Profile</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b', marginTop: 10}]} onPress={handleLogout}>
-              <Text style={styles.buttonText}>Logout</Text>
-            </TouchableOpacity>
+            <HoverButton
+              type="profile"
+              onPress={() => setScreen('profile')}
+              label="View Profile"
+            />
+
+            <HoverButton
+              type="logout"
+              onPress={handleLogout}
+              label="Logout"
+            />
+
           </ScrollView>
         </SafeAreaView>
       </View>
