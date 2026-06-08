@@ -12,6 +12,8 @@ const LogSampleScreen = ({
   selectedOre, setSelectedOre, 
   moistureValue, setMoistureValue, 
   flotationValue, setFlotationValue,
+    sampleSource, setSampleSource,
+  receivedAt, setReceivedAt,
   onLogSample, onBack 
 }) => {
 
@@ -72,7 +74,24 @@ const LogSampleScreen = ({
                 placeholderTextColor="#888"
               />
 
-              {/* ── REMINDER: at least one field required to commit ── */}
+               <Text style={styles.label}>Sample Source (Where received from):</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Mine Site A, Supplier XYZ"
+                value={sampleSource}
+                onChangeText={setSampleSource}
+                placeholderTextColor="#888"
+              />
+
+              <Text style={styles.label}>Date Received:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 07 June 2026"
+                value={receivedAt}
+                onChangeText={setReceivedAt}
+                placeholderTextColor="#888"
+              />
+
               <Text style={{ color: '#888', fontSize: 12, marginBottom: 12, textAlign: 'center' }}>
                 * At least one test result is required to commit.
               </Text>
