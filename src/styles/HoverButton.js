@@ -49,6 +49,11 @@ export const HoverButton = ({ type = 'button', onPress, label, customStyle, cust
       textStyle: styles.buttonText,
       hoverColor: '#922b21',
     },
+    settings: {
+      style: [styles.roleButton, { backgroundColor: '#e67e22', marginTop: 10 }],
+      textStyle: styles.buttonText,
+      hoverColor: '#ca6f1e',
+    },
   };
 
   const config = buttonConfig[type] || buttonConfig['button'];
