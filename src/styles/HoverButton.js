@@ -1,10 +1,11 @@
 // src/styles/HoverButton.js
 
 import React, { useState } from 'react';
-import { TouchableOpacity, Text } from 'react-native';
+import { TouchableOpacity, Text, TextInput } from 'react-native';
 import { styles } from './globalStyles';
 
-const HoverButton = ({ type = 'button', onPress, label, customStyle, customTextStyle }) => {
+// HOVER BUTTON
+export const HoverButton = ({ type = 'button', onPress, label, customStyle, customTextStyle }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const buttonConfig = {
@@ -28,7 +29,6 @@ const HoverButton = ({ type = 'button', onPress, label, customStyle, customTextS
       textStyle: styles.cancelButtonText,
       hoverColor: '#1A1A3A',
     },
-    // ← NEW BUTTON TYPES FOR LAB TECHNICIAN DASHBOARD
     labAction: {
       style: styles.roleButton,
       textStyle: styles.buttonText,
@@ -70,6 +70,51 @@ const HoverButton = ({ type = 'button', onPress, label, customStyle, customTextS
     >
       <Text style={[config.textStyle, customTextStyle]}>{label}</Text>
     </TouchableOpacity>
+  );
+};
+
+// HOVER INPUT
+export const HoverInput = ({ 
+  placeholder, 
+  value, 
+  onChangeText, 
+  secureTextEntry = false, 
+  keyboardType = 'default',
+  autoCapitalize = 'none',
+  placeholderTextColor = '#888',
+  customStyle,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <TextInput
+      style={[
+        styles.input,
+        customStyle,
+        isHovered && !isFocused && { 
+          borderColor: '#3498db', 
+          borderWidth: 2.5,
+          backgroundColor: '#f0f4ff',
+        },
+        isFocused && { 
+          borderColor: '#00BFFF', 
+          borderWidth: 3,
+          backgroundColor: '#ffffff',
+        }
+      ]}
+      placeholder={placeholder}
+      value={value}
+      onChangeText={onChangeText}
+      secureTextEntry={secureTextEntry}
+      keyboardType={keyboardType}
+      autoCapitalize={autoCapitalize}
+      placeholderTextColor={placeholderTextColor}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+    />
   );
 };
 
