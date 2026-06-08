@@ -905,6 +905,8 @@ console.log("🔍 selectedMeltSample.id:", selectedMeltSample.id);
       initialWeight: selectedMeltSample.initialWeight || 0,
       moistureTestResult: selectedMeltSample.moistureTestResult !== undefined ? selectedMeltSample.moistureTestResult : null,
       flotationPrepResult: selectedMeltSample.flotationPrepResult !== undefined ? selectedMeltSample.flotationPrepResult : null,
+      sampleSource: selectedMeltSample.sampleSource || '',
+      receivedAt: selectedMeltSample.receivedAt || '',
     };
     await addDoc(collection(db, "furnace_operations"), meltData);
 
@@ -1084,7 +1086,7 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
     const historyLog = [];
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      if (data.status === 'Approved' || data.status === 'Declined') { 
+      if (data.status === 'Approved' || data.status === 'Declined' || data.status === 'In Melt Cycle') { 
         historyLog.push({ id: docSnap.id, ...data });
       }
     });

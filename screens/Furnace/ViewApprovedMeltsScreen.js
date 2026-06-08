@@ -21,7 +21,7 @@ const FurnaceQueueScreen = ({ furnaceLogs, onSelectSample, onBack }) => {
                 <View key={sample.id} style={[styles.sampleCard, { borderLeftColor: '#2ecc71' }]}>
 
                   <Text style={styles.sampleCardHeader}>
-                    🧪 {sample.displayId || sample.sampleId}
+                    🧪 {sample.sampleId || sample.displayId}
                   </Text>
 
                   <View style={styles.sampleCardRow}>
