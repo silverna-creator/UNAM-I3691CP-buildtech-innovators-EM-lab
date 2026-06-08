@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, SafeAreaView } from 'react-nat
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styles } from '../../src/styles/globalStyles';
 import Logo from '../../src/styles/Logo';
-
+import HoverButton from '../../src/styles/HoverButton';
 
 const LoginScreen = ({ 
   email, setEmail, 
@@ -38,9 +38,7 @@ const LoginScreen = ({
             placeholderTextColor="#888" 
           />
           
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Login</Text>
-          </TouchableOpacity>
+          <HoverButton type="login" onPress={handleLogin} label="Login" />
 
           <TouchableOpacity onPress={handleForgotPassword} style={{ marginTop: 15 }}>
             <Text style={[styles.switchText, { textDecorationLine: 'underline' }]}>Forgot Password?</Text>
