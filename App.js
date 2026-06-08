@@ -999,6 +999,11 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
   }
 };
 
+const handleSaveSettings = async () => {
+  // TODO: Full implementation exists on main branch — merge before release
+  console.log("handleSaveSettings: pending merge from main");
+};
+
   return (
   <CodeCrashBoundary>
     <View style={styles.container}>
