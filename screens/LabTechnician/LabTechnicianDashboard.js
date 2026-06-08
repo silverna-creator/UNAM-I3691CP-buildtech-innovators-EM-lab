@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styles } from '../../src/styles/globalStyles';
+import HoverButton from '../../src/styles/HoverButton';
+
 
 const LabTechnicianDashboard = ({ 
   companyName, 
@@ -35,9 +37,7 @@ const LabTechnicianDashboard = ({
             <Text style={styles.buttonText}>View Profile</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#c0392b', marginTop: 10}]} onPress={handleLogout}>
-            <Text style={styles.buttonText}>Logout</Text>
-          </TouchableOpacity>
+          <HoverButton type="logout" onPress={handleLogout} label="Logout" />
         </SafeAreaView>
       </View>
     </SafeAreaProvider>
