@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { styles } from '../../src/styles/globalStyles';
-import HoverButton from '../../src/styles/HoverButton';
 
 
 const ProfileScreen = ({ 
@@ -31,8 +30,12 @@ const ProfileScreen = ({
               <TextInput style={styles.input} placeholder="Current Password" secureTextEntry value={currentPassword} onChangeText={setCurrentPassword} />
               <TextInput style={styles.input} placeholder="New Password" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
               <TextInput style={styles.input} placeholder="Confirm New Password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
-              <HoverButton type="login" onPress={() => handleInternalPasswordChange(currentPassword, newPassword)} label="Save New Password" />
-              <HoverButton type="cancel" onPress={() => setIsChangingPassword(false)} label="Cancel" />
+              <TouchableOpacity style={styles.loginButton} onPress={() => handleInternalPasswordChange(currentPassword, newPassword)}>
+                <Text style={styles.loginButtonText}>Save New Password</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setIsChangingPassword(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity style={[styles.roleButton, {backgroundColor: '#3498db', marginTop: 10}]} onPress={() => setIsChangingPassword(true)}>
