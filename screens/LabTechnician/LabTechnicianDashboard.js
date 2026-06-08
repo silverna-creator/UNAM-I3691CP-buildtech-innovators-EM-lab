@@ -1,9 +1,10 @@
+// screens/LabTechnician/LabTechnicianDashboard.js
+
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, Text } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from '../../src/styles/globalStyles';
 import HoverButton from '../../src/styles/HoverButton';
-
 
 const LabTechnicianDashboard = ({ 
   companyName, 
@@ -21,23 +22,31 @@ const LabTechnicianDashboard = ({
           <View style={styles.roleBox}>
             <Text style={styles.roleTitle}>Technician Portal</Text>
             
-            <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('log_sample')}>
-              <Text style={styles.buttonText}>🧪 Log New Mineral Sample</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.roleButton, { backgroundColor: '#2e4053', marginTop: 10 }]} 
-              onPress={() => fetchMineralSamples(companyName, true)} 
-            >
-              <Text style={styles.buttonText}>📋 View Logged Samples</Text>
-            </TouchableOpacity>
+            <HoverButton
+              type="labAction"
+              onPress={() => setScreen('log_sample')}
+              label="🧪 Log New Mineral Sample"
+            />
+
+            <HoverButton
+              type="labSecondary"
+              onPress={() => fetchMineralSamples(companyName, true)}
+              label="📋 View Logged Samples"
+            />
           </View>
 
-          <TouchableOpacity style={styles.roleButton} onPress={() => setScreen('profile')}>
-            <Text style={styles.buttonText}>View Profile</Text>
-          </TouchableOpacity>
-          
-          <HoverButton type="logout" onPress={handleLogout} label="Logout" />
+          <HoverButton
+            type="profile"
+            onPress={() => setScreen('profile')}
+            label="View Profile"
+          />
+
+          <HoverButton
+            type="logout"
+            onPress={handleLogout}
+            label="Logout"
+          />
+
         </SafeAreaView>
       </View>
     </SafeAreaProvider>
