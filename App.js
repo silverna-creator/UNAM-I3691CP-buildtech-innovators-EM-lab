@@ -26,6 +26,7 @@ import FurnaceOperatorDashboard from './screens/Furnace/FurnaceOperatorDashboard
 import MetallurgistDashboard from './screens/Metallurgist/MetallurgistDashboard';
 import ProfileScreen from './screens/Auth/ProfileScreen';
 import { styles } from './src/styles/globalStyles';
+import Logo from './src/styles/Logo';
 
 const normalizeCompany = (name) => {
   if (!name || typeof name !== 'string') return '';
@@ -71,6 +72,8 @@ export default function App() {
 const [samplesList, setSamplesList] = useState([]); // 👈 Keep this so your list views don't break!
 const [sampleId, setSampleId] = useState('');
 const [initialWeight, setInitialWeight] = useState('');
+const [sampleSource, setSampleSource] = useState('');
+const [receivedAt, setReceivedAt] = useState('');
 
 // 🔬 NEW SELECTION STATE TRACKERS 
 const [selectedGroup, setSelectedGroup] = useState('SULFIDES');
@@ -655,10 +658,9 @@ const fetchStaffDirectory = async () => {
         loggedBy: finalLoggedBy,    
         createdAt: finalTimestamp,
         status: "Pending Analysis",
-        
-        // 💾 SAVING BOTH NEW FEATURE CARD VALUES SEPARATELY
         moistureTestResult: finalMoisture, 
-        flotationPrepResult: finalFlotation
+        flotationPrepResult: finalFlotation, sampleSource: sampleSource ? sampleSource.trim() : '',
+  receivedAt: receivedAt ? receivedAt.trim() : '',
       };
 
       console.log("Writing customized document path directly...", uniqueCompositeId);
@@ -684,8 +686,10 @@ const fetchStaffDirectory = async () => {
       setInitialWeight('');
       setSelectedGroup('SULFIDES'); 
       setSelectedOre('');
-      setMoistureValue('');  // Clears moisture card
-      setFlotationValue(''); // Clears flotation card
+      setMoistureValue(''); 
+      setFlotationValue(''); 
+      setSampleSource('');
+setReceivedAt('');
       
       // Dynamic refresh on the dashboard component
       fetchMineralSamples(cleanCompany);
@@ -906,6 +910,8 @@ console.log("🔍 selectedMeltSample.id:", selectedMeltSample.id);
       initialWeight: selectedMeltSample.initialWeight || 0,
       moistureTestResult: selectedMeltSample.moistureTestResult !== undefined ? selectedMeltSample.moistureTestResult : null,
       flotationPrepResult: selectedMeltSample.flotationPrepResult !== undefined ? selectedMeltSample.flotationPrepResult : null,
+      sampleSource: selectedMeltSample.sampleSource || '',
+      receivedAt: selectedMeltSample.receivedAt || '',
     };
     await addDoc(collection(db, "furnace_operations"), meltData);
 
@@ -1085,7 +1091,7 @@ console.log("🔍 selectedSample object:", JSON.stringify(selectedSample));
     const historyLog = [];
     querySnapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      if (data.status === 'Approved' || data.status === 'Declined') { 
+      if (data.status === 'Approved' || data.status === 'Declined' || data.status === 'In Melt Cycle') { 
         historyLog.push({ id: docSnap.id, ...data });
       }
     });
@@ -1182,12 +1188,6 @@ const markNotificationsRead = async () => {
     <View style={styles.container}>
       
       {/* 1. Loading State */}
-      {(!isReady || screen === 'loading') && (
-        <View style={styles.container}>
-          <Text style={styles.title}>EM-Lab</Text>
-          <Text style={styles.subtitle}>Securing Session...</Text>
-        </View>
-      )}
 
       {screen === 'lockdown_block' && (
   <LaboratoryLockdownScreen
@@ -1238,6 +1238,8 @@ const markNotificationsRead = async () => {
     selectedOre={selectedOre} setSelectedOre={setSelectedOre}
     moistureValue={moistureValue} setMoistureValue={setMoistureValue}
     flotationValue={flotationValue} setFlotationValue={setFlotationValue}
+    sampleSource={sampleSource} setSampleSource={setSampleSource}
+    receivedAt={receivedAt} setReceivedAt={setReceivedAt}
     onLogSample={logMineralSample} 
     onBack={() => setScreen('lab_technician_dashboard')}
   />

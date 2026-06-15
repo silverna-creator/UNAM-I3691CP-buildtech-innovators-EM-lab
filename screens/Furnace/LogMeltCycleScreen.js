@@ -6,7 +6,7 @@ const MeltControlScreen = ({ selectedSample, temp, setTemp, duration, setDuratio
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Furnace Control Room</Text>
-      <Text style={styles.subtitle}>Batch: {selectedSample.displayId || selectedSample.sampleId}</Text>
+      <Text style={styles.subtitle}>Batch: {selectedSample.sampleId || selectedSample.displayId}</Text>
       
       <View style={styles.roleBox}>
         <Text style={styles.roleTitle}>Update Telemetry Log</Text>

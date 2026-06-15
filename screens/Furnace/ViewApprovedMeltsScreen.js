@@ -21,7 +21,7 @@ const FurnaceQueueScreen = ({ furnaceLogs, onSelectSample, onBack }) => {
                 <View key={sample.id} style={[styles.sampleCard, { borderLeftColor: '#2ecc71' }]}>
 
                   <Text style={styles.sampleCardHeader}>
-                    🧪 {sample.displayId || sample.sampleId}
+                    🧪 {sample.sampleId || sample.displayId}
                   </Text>
 
                   <View style={styles.sampleCardRow}>
@@ -54,6 +54,20 @@ const FurnaceQueueScreen = ({ furnaceLogs, onSelectSample, onBack }) => {
                       {sample.flotationPrepResult != null ? `${sample.flotationPrepResult} g/cm³` : 'Not tested'}
                     </Text>
                   </View>
+
+                  {sample.sampleSource ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Received From</Text>
+                      <Text style={styles.sampleCardValue}>{sample.sampleSource}</Text>
+                    </View>
+                  ) : null}
+
+                  {sample.receivedAt ? (
+                    <View style={styles.sampleCardRow}>
+                      <Text style={styles.sampleCardLabel}>Date Received</Text>
+                      <Text style={styles.sampleCardValue}>{sample.receivedAt}</Text>
+                    </View>
+                  ) : null}
 
                   <TouchableOpacity
                     style={[styles.roleButton, { backgroundColor: '#e67e22', marginTop: 12 }]}
