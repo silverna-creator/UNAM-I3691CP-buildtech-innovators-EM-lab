@@ -26,6 +26,7 @@ import FurnaceOperatorDashboard from './screens/Furnace/FurnaceOperatorDashboard
 import MetallurgistDashboard from './screens/Metallurgist/MetallurgistDashboard';
 import ProfileScreen from './screens/Auth/ProfileScreen';
 import { styles } from './src/styles/globalStyles';
+import Logo from './src/styles/Logo';
 
 const normalizeCompany = (name) => {
   if (!name || typeof name !== 'string') return '';
@@ -1187,12 +1188,6 @@ const markNotificationsRead = async () => {
     <View style={styles.container}>
       
       {/* 1. Loading State */}
-      {(!isReady || screen === 'loading') && (
-        <View style={styles.container}>
-          <Text style={styles.title}>EM-Lab</Text>
-          <Text style={styles.subtitle}>Securing Session...</Text>
-        </View>
-      )}
 
       {screen === 'lockdown_block' && (
   <LaboratoryLockdownScreen

@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
   loginButtonText: { color: '#ffffff', fontSize: 18, fontWeight: 'bold' },
   
   // Inputs
-  input: { backgroundColor: '#2A2A4A', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000', borderWidth: 2.5, borderColor: '#0047AB'},
+  input: { backgroundColor: '#ffffff', borderRadius: 12, padding: 15, marginBottom: 15, fontSize: 16, color: '#000', borderWidth: 2.5, borderColor: '#0047AB'},
   
   // Buttons
   loginButton: { backgroundColor: '#0047AB', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10, borderWidth: 2.5, borderColor: '#3498db' },
